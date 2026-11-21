@@ -51,4 +51,8 @@
     <string name="llama_context_total">32,768</string>
     <string name="llama_context_available">24,576 available</string>
     <string name="llama_context_label">Context tokens</string>
+
+    <!-- Navigation -->
+    <string name="nav_system">System</string>
+    <string name="nav_control">Control</string>
 </resources>

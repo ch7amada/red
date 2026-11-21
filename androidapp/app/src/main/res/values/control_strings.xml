@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Control screen -->
+    <string name="control_title">Control</string>
+    <string name="control_simulated">Simulated actions</string>
+    <string name="control_updates_title">System updates</string>
+    <string name="control_updates_ready">Check for available package updates.</string>
+    <string name="control_updates_available">3 updates available</string>
+    <string name="control_updates_none">System is up to date</string>
+    <string name="control_updates_button_check">Check for updates</string>
+    <string name="control_updates_button_update">Update system</string>
+    <string name="control_reboot_title">Server reboot</string>
+    <string name="control_reboot_explanation">A reboot would briefly interrupt the connection.</string>
+    <string name="control_reboot_button">Reboot</string>
+    <string name="control_reboot_simulated">Reboot simulated</string>
+    <string name="control_confirm_update_title">Update system?</string>
+    <string name="control_confirm_update_message">Install available updates on %1$s in this preview.</string>
+    <string name="control_confirm_reboot_title">Reboot server?</string>
+    <string name="control_confirm_reboot_message">A reboot would briefly interrupt connections to %1$s. This is a simulation.</string>
+    <string name="control_dialog_cancel">Cancel</string>
+</resources>
