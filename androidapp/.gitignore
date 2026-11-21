@@ -1,0 +1,18 @@
+# Gradle
+.gradle/
+.kotlin/
+build/
+app/build/
+
+# IDE
+.idea/
+*.iml
+
+# Build outputs
+*.apk
+*.aab
+*.ap_
+output.json
+
+# Local config
+local.properties
