@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
-from typing import Any, Callable
+from contextlib import asynccontextmanager
+from typing import Any, Callable, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
@@ -15,6 +17,20 @@ from .auth import AuthThrottle, authenticate
 from .config import Settings
 from .collectors.system import collect_system
 from .errors import ErrorResponse, ErrorDetail
+from .operations import (
+    AsyncSubprocessRunner,
+    JobManager,
+    OperationError,
+    PowerService,
+    StateStore,
+)
+from .operations.errors import (
+    ConflictError,
+    ExecutionError,
+    InvalidInputError,
+    NotFoundError,
+    TimeoutOperationError,
+)
 from .schemas import SystemInfo
 
 
@@ -28,6 +44,8 @@ def _status_code_to_code(status_code: int) -> str:
         422: "validation_error",
         429: "too_many_requests",
         500: "internal_error",
+        503: "service_unavailable",
+        504: "gateway_timeout",
     }
     return mapping.get(status_code, "error")
 
@@ -41,12 +59,73 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def _resolve_settings(settings: Optional[Settings]) -> Settings:
     if settings is None:
-        from .config import Settings as _Settings
-
-        settings = _Settings()
+        settings = Settings()
     settings.validate_tokens()
+    return settings
+
+
+def ensure_operation_resources(app: FastAPI) -> None:
+    """Lazily create operation resources if they do not already exist."""
+    settings: Settings = app.state.settings
+    if getattr(app.state, "store", None) is None:
+        app.state.store = StateStore(settings.database_path)
+    if getattr(app.state, "operation_lock", None) is None:
+        app.state.operation_lock = asyncio.Lock()
+    if getattr(app.state, "runner", None) is None:
+        app.state.runner = AsyncSubprocessRunner()
+
+    store = app.state.store
+    lock = app.state.operation_lock
+    runner = app.state.runner
+
+    if getattr(app.state, "job_manager", None) is None:
+        app.state.job_manager = JobManager(
+            store,
+            runner,
+            settings.privileged_helper_path,
+            sudo_path=settings.sudo_path,
+            use_sudo=True,
+            operation_lock=lock,
+        )
+    job_manager = app.state.job_manager
+
+    if getattr(app.state, "power_service", None) is None:
+        app.state.power_service = PowerService(
+            store,
+            runner,
+            settings.privileged_helper_path,
+            sudo_path=settings.sudo_path,
+            use_sudo=True,
+            job_manager=job_manager,
+            operation_lock=lock,
+        )
+    power_service = app.state.power_service
+
+    job_manager.set_power_service(power_service)
+    power_service.set_job_manager(job_manager)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ensure_operation_resources(app)
+    store = app.state.store
+    try:
+        yield
+    finally:
+        if store is not None:
+            store.close()
+
+
+def create_app(
+    settings: Optional[Settings] = None,
+    *,
+    runner: Any = None,
+    store: Any = None,
+    operation_lock: Any = None,
+) -> FastAPI:
+    settings = _resolve_settings(settings)
 
     docs_url = "/docs" if settings.docs_enabled else None
     redoc_url = "/redoc" if settings.docs_enabled else None
@@ -58,6 +137,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url=docs_url,
         redoc_url=redoc_url,
         openapi_url=openapi_url,
+        lifespan=lifespan,
     )
 
     app.state.settings = settings
@@ -66,6 +146,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         window_seconds=settings.auth_failure_window_seconds,
         max_clients=settings.auth_throttle_max_clients,
     )
+
+    # Injection hooks for tests.
+    if runner is not None:
+        app.state.runner = runner
+    if store is not None:
+        app.state.store = store
+    if operation_lock is not None:
+        app.state.operation_lock = operation_lock
 
     app.add_middleware(RequestIDMiddleware)
 
@@ -95,6 +183,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return JSONResponse(status_code=422, content=body.model_dump(), headers={"X-Request-ID": request_id})
 
+    @app.exception_handler(OperationError)
+    async def operation_error_handler(request: Request, exc: OperationError) -> JSONResponse:
+        request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
+        status_code = exc.http_status
+        if isinstance(exc, InvalidInputError):
+            status_code = 422
+        elif isinstance(exc, NotFoundError):
+            status_code = 404
+        elif isinstance(exc, ConflictError):
+            status_code = 409
+        elif isinstance(exc, TimeoutOperationError):
+            status_code = 504
+        elif isinstance(exc, ExecutionError):
+            status_code = 503
+        body = ErrorResponse(
+            error=ErrorDetail(
+                code=exc.code,
+                message=exc.message,
+                request_id=request_id,
+            )
+        )
+        return JSONResponse(status_code=status_code, content=body.model_dump(), headers={"X-Request-ID": request_id})
+
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
@@ -114,6 +225,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/v1/system", response_model=SystemInfo)
     async def system(_identity: str = Depends(authenticate)) -> SystemInfo:
         return await run_in_threadpool(collect_system, settings)
+
+    # Register operation routes.
+    from .operation_routes import register_operation_routes
+
+    register_operation_routes(app)
 
     return app
 

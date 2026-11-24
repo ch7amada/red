@@ -6,3 +6,8 @@ dist/
 build/
 .env
 *.pyc
+linux-monitor.db
+linux-monitor.db-wal
+linux-monitor.db-shm
+*.db-wal
+*.db-shm

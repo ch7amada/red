@@ -1,0 +1,21 @@
+[Unit]
+Description=Linux Monitor API server
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+User=linux-monitor
+Group=linux-monitor
+EnvironmentFile=/etc/linux-monitor/server.env
+WorkingDirectory=/opt/linux-monitor
+ExecStart=/opt/linux-monitor/.venv/bin/uvicorn linux_monitor.asgi:app --host ${HOST} --port ${PORT}
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StateDirectory=linux-monitor
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

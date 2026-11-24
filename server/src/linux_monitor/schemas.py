@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class OsInfo(BaseModel):
@@ -98,3 +98,38 @@ class SystemInfo(BaseModel):
     network_status: ComponentStatus = Field(default_factory=ComponentStatus)
     gpus: list[GpuInfo] = Field(default_factory=list)
     gpu_status: ComponentStatus = Field(default_factory=ComponentStatus)
+
+class JobResponse(BaseModel):
+    id: str
+    kind: str
+    status: str
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    result: Optional[dict[str, Any]] = None
+    output: Optional[str] = None
+    output_truncated: bool = False
+    error_code: Optional[str] = None
+    error_message: Optional[str] = None
+    poll_url: str
+
+
+class PowerActionCreateRequest(BaseModel):
+    action: Literal["reboot", "shutdown"]
+    delay_seconds: int = Field(default=60, ge=10, le=3600)
+    confirmation: str
+
+    @model_validator(mode="after")
+    def _confirmation_matches_action(self) -> "PowerActionCreateRequest":
+        if self.confirmation != self.action:
+            raise ValueError("confirmation must exactly equal action")
+        return self
+
+
+class PowerActionResponse(BaseModel):
+    id: str
+    action: str
+    status: str
+    created_at: datetime
+    scheduled_for: Optional[datetime] = None
+    cancellable: bool = False

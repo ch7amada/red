@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import os
-import secrets
 from typing import Optional
 
-from pydantic import SecretStr, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +27,10 @@ class Settings(BaseSettings):
     auth_throttle_max_clients: int = 1024
     cpu_sample_seconds: float = 0.1
     gpu_timeout_seconds: float = 3.0
+
+    database_path: str = Field(default="linux-monitor.db")
+    privileged_helper_path: str = Field(default="/usr/local/libexec/linux-monitor-privileged")
+    sudo_path: str = Field(default="/usr/bin/sudo")
 
     @model_validator(mode="after")
     def _validate_tokens_on_init(self) -> "Settings":

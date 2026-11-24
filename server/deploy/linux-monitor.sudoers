@@ -1,0 +1,1 @@
+linux-monitor ALL=(root) NOPASSWD: /usr/local/libexec/linux-monitor-privileged

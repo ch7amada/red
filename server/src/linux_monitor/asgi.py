@@ -1,7 +1,5 @@
 """ASGI entrypoint."""
 
-from .config import Settings
-from .main import create_app
+from .main import app
 
-settings = Settings()
-app = create_app(settings)
+__all__ = ["app"]
