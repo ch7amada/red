@@ -47,6 +47,8 @@ class Session:
     created_at: float
     last_seen: float
     expires_at: float
+    last_update_job_id: Optional[str] = None
+    last_power_action_id: Optional[str] = None
 
 
 class SessionStore:
@@ -253,6 +255,153 @@ def create_app(
         except ValueError:
             return None, "unavailable"
 
+    ZERO_JOB_ID = "00000000-0000-0000-0000-000000000000"
+
+    def _error_detail(response: httpx.Response) -> str:
+        try:
+            data = response.json()
+            err = data.get("error", {}) if isinstance(data, dict) else {}
+            code = err.get("code") if isinstance(err, dict) else None
+            msg = err.get("message") if isinstance(err, dict) else None
+            if code and msg:
+                return f"{code}: {msg}"
+            if msg:
+                return str(msg)
+            if code:
+                return str(code)
+        except (ValueError, AttributeError):
+            pass
+        text = (response.text or "").strip()
+        return text if text else f"HTTP {response.status_code}"
+
+    async def fetch_job(token: str, job_id: str) -> tuple[Optional[dict], str, str]:
+        try:
+            response = await upstream.get(
+                f"/api/v1/jobs/{job_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=httpx.Timeout(10.0),
+            )
+        except httpx.HTTPError:
+            return None, "unavailable", "Monitoring server unavailable."
+        if response.status_code == 401:
+            return None, "unauthorized", _error_detail(response)
+        if response.status_code == 403:
+            return None, "forbidden", _error_detail(response)
+        if response.status_code == 404:
+            return None, "not_found", _error_detail(response)
+        if not response.is_success:
+            return None, "unavailable", _error_detail(response)
+        try:
+            return response.json(), "ok", ""
+        except ValueError:
+            return None, "unavailable", "Invalid response from monitoring server."
+
+    async def fetch_power(token: str, action_id: str) -> tuple[Optional[dict], str, str]:
+        try:
+            response = await upstream.get(
+                f"/api/v1/power-actions/{action_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=httpx.Timeout(10.0),
+            )
+        except httpx.HTTPError:
+            return None, "unavailable", "Monitoring server unavailable."
+        if response.status_code == 401:
+            return None, "unauthorized", _error_detail(response)
+        if response.status_code == 403:
+            return None, "forbidden", _error_detail(response)
+        if response.status_code == 404:
+            return None, "not_found", _error_detail(response)
+        if not response.is_success:
+            return None, "unavailable", _error_detail(response)
+        try:
+            return response.json(), "ok", ""
+        except ValueError:
+            return None, "unavailable", "Invalid response from monitoring server."
+
+    async def create_update_job(token: str, kind: str) -> tuple[Optional[dict], str, str]:
+        path = "/api/v1/updates/check" if kind == "check" else "/api/v1/updates/apply"
+        try:
+            response = await upstream.post(
+                path, headers={"Authorization": f"Bearer {token}"}, timeout=httpx.Timeout(10.0)
+            )
+        except httpx.HTTPError:
+            return None, "unavailable", "Monitoring server unavailable."
+        if response.status_code == 401:
+            return None, "unauthorized", _error_detail(response)
+        if response.status_code == 403:
+            return None, "forbidden", _error_detail(response)
+        if response.status_code == 404:
+            return None, "not_found", _error_detail(response)
+        if response.status_code == 409:
+            return None, "conflict", _error_detail(response)
+        if response.status_code == 422:
+            return None, "invalid", _error_detail(response)
+        if response.status_code in (503, 504):
+            return None, "unavailable", _error_detail(response)
+        if not response.is_success:
+            return None, "unavailable", _error_detail(response)
+        try:
+            return response.json(), "ok", ""
+        except ValueError:
+            return None, "unavailable", "Invalid response from monitoring server."
+
+    async def create_power_action(token: str, action: str, delay: int, confirmation: str) -> tuple[Optional[dict], str, str]:
+        try:
+            response = await upstream.post(
+                "/api/v1/power-actions",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"action": action, "delay_seconds": delay, "confirmation": confirmation},
+                timeout=httpx.Timeout(120.0),
+            )
+        except httpx.HTTPError:
+            return None, "unavailable", "Monitoring server unavailable."
+        if response.status_code == 401:
+            return None, "unauthorized", _error_detail(response)
+        if response.status_code == 403:
+            return None, "forbidden", _error_detail(response)
+        if response.status_code == 404:
+            return None, "not_found", _error_detail(response)
+        if response.status_code == 409:
+            return None, "conflict", _error_detail(response)
+        if response.status_code == 422:
+            return None, "invalid", _error_detail(response)
+        if response.status_code in (503, 504):
+            return None, "unavailable", _error_detail(response)
+        if not response.is_success:
+            return None, "unavailable", _error_detail(response)
+        try:
+            return response.json(), "ok", ""
+        except ValueError:
+            return None, "unavailable", "Invalid response from monitoring server."
+
+    async def cancel_power_action(token: str, action_id: str) -> tuple[Optional[dict], str, str]:
+        try:
+            response = await upstream.delete(
+                f"/api/v1/power-actions/{action_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=httpx.Timeout(10.0),
+            )
+        except httpx.HTTPError:
+            return None, "unavailable", "Monitoring server unavailable."
+        if response.status_code == 401:
+            return None, "unauthorized", _error_detail(response)
+        if response.status_code == 403:
+            return None, "forbidden", _error_detail(response)
+        if response.status_code == 404:
+            return None, "not_found", _error_detail(response)
+        if response.status_code == 409:
+            return None, "conflict", _error_detail(response)
+        if response.status_code == 422:
+            return None, "invalid", _error_detail(response)
+        if response.status_code in (503, 504):
+            return None, "unavailable", _error_detail(response)
+        if not response.is_success:
+            return None, "unavailable", _error_detail(response)
+        try:
+            return response.json(), "ok", ""
+        except ValueError:
+            return None, "unavailable", "Invalid response from monitoring server."
+
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
         if exc.status_code == 401:
@@ -327,15 +476,314 @@ def create_app(
             session_store.revoke(request.cookies.get(settings.cookie_name))
             raise HTTPException(status_code=401, detail="Upstream rejected credentials")
         if kind == "unavailable":
-            return templates.TemplateResponse(
+            response = templates.TemplateResponse(
                 request, "partials/overview.html",
                 {"error": "Monitoring server unavailable or degraded.", "snapshot": None},
                 status_code=503,
             )
+            if request.headers.get("HX-Request"):
+                response.headers["HX-Reswap"] = "innerHTML"
+            return response
         return templates.TemplateResponse(
             request, "partials/overview.html",
             {"error": None, "snapshot": payload},
         )
+
+    def _is_hx(request: Request) -> bool:
+        return bool(request.headers.get("HX-Request"))
+
+    def _session_or_401(request: Request) -> Session:
+        session = get_session(request)
+        if session is None:
+            raise HTTPException(status_code=401, detail="Session expired or missing")
+        return session
+
+    async def _control_context(request: Request, session: Session) -> dict[str, Any]:
+        # Determine reader vs admin using harmless job lookup.
+        job_id = session.last_update_job_id
+        power_id = session.last_power_action_id
+        job = None
+        power = None
+        role = "admin"
+        error = None
+        unavailable = False
+        data, kind, detail = await fetch_job(session.token, ZERO_JOB_ID)
+        if kind == "unauthorized":
+            session_store.revoke(request.cookies.get(settings.cookie_name))
+            raise HTTPException(status_code=401, detail="Upstream rejected credentials")
+        if kind == "forbidden":
+            role = "reader"
+        elif kind == "not_found":
+            role = "admin"
+        else:
+            role = "unknown"
+            unavailable = True
+            error = detail or "Monitoring server unavailable."
+        # Retain ids: fetch current status when present.
+        if job_id:
+            jdata, jkind, jdetail = await fetch_job(session.token, job_id)
+            if jkind == "unauthorized":
+                session_store.revoke(request.cookies.get(settings.cookie_name))
+                raise HTTPException(status_code=401, detail="Upstream rejected credentials")
+            if jkind == "not_found":
+                session.last_update_job_id = None
+                job_id = None
+                job = None
+            elif jkind == "ok":
+                job = jdata
+            else:
+                # keep id; surface error via job None and error? store last error in job_error
+                pass
+        if power_id:
+            pdata, pkind, pdetail = await fetch_power(session.token, power_id)
+            if pkind == "unauthorized":
+                session_store.revoke(request.cookies.get(settings.cookie_name))
+                raise HTTPException(status_code=401, detail="Upstream rejected credentials")
+            if pkind == "not_found":
+                session.last_power_action_id = None
+                power_id = None
+                power = None
+            elif pkind == "ok":
+                power = pdata
+        return {
+            "role": role,
+            "error": error,
+            "unavailable": unavailable,
+            "job_id": job_id,
+            "power_id": power_id,
+            "job": job,
+            "power": power,
+        }
+
+    @app.get("/control", response_class=HTMLResponse)
+    async def control_page(request: Request) -> Any:
+        session = _session_or_401(request)
+        ctx = await _control_context(request, session)
+        return templates.TemplateResponse(request, "control.html", ctx)
+
+    @app.get("/control/jobs/{job_id}", response_class=HTMLResponse)
+    async def control_job_status(request: Request, job_id: str) -> Any:
+        session = _session_or_401(request)
+        data, kind, detail = await fetch_job(session.token, job_id)
+        if kind == "unauthorized":
+            session_store.revoke(request.cookies.get(settings.cookie_name))
+            raise HTTPException(status_code=401, detail="Upstream rejected credentials")
+        if kind == "not_found":
+            session.last_update_job_id = None
+            return templates.TemplateResponse(
+                request, "partials/job_status.html",
+                {"job": None, "error": detail or "Operation not found."},
+            )
+        if kind != "ok":
+            return templates.TemplateResponse(
+                request, "partials/job_status.html",
+                {"job": None, "error": detail or "Operation unavailable."},
+            )
+        session.last_update_job_id = job_id
+        return templates.TemplateResponse(
+            request, "partials/job_status.html", {"job": data, "error": None}
+        )
+
+    @app.get("/control/power-actions/{action_id}", response_class=HTMLResponse)
+    async def control_power_status(request: Request, action_id: str) -> Any:
+        session = _session_or_401(request)
+        data, kind, detail = await fetch_power(session.token, action_id)
+        if kind == "unauthorized":
+            session_store.revoke(request.cookies.get(settings.cookie_name))
+            raise HTTPException(status_code=401, detail="Upstream rejected credentials")
+        if kind == "not_found":
+            session.last_power_action_id = None
+            return templates.TemplateResponse(
+                request, "partials/power_status.html",
+                {"power": None, "error": detail or "Power action not found."},
+            )
+        if kind != "ok":
+            return templates.TemplateResponse(
+                request, "partials/power_status.html",
+                {"power": None, "error": detail or "Power action unavailable."},
+            )
+        session.last_power_action_id = action_id
+        return templates.TemplateResponse(
+            request, "partials/power_status.html", {"power": data, "error": None}
+        )
+
+    async def _handle_updates_check(request: Request, session: Session) -> Any:
+        hx = _is_hx(request)
+        data, kind, detail = await create_update_job(session.token, "check")
+        if kind == "unauthorized":
+            session_store.revoke(request.cookies.get(settings.cookie_name))
+            raise HTTPException(status_code=401, detail="Upstream rejected credentials")
+        if kind != "ok":
+            msg = detail or "Update check failed."
+            if kind == "forbidden":
+                msg = "Admin token required for update checks."
+            if kind == "conflict":
+                msg = msg or "Operation conflict."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/job_status.html",
+                    {"job": None, "error": msg}, status_code=200,
+                )
+            return RedirectResponse("/control", status_code=303)
+        session.last_update_job_id = data.get("id")
+        if hx:
+            return templates.TemplateResponse(
+                request, "partials/job_status.html", {"job": data, "error": None}
+            )
+        return RedirectResponse("/control", status_code=303)
+
+    @app.post("/control/updates/check", response_class=HTMLResponse)
+    async def control_updates_check(request: Request) -> Any:
+        if not _origin_ok(request):
+            raise HTTPException(status_code=403, detail="Cross-origin request rejected")
+        session = _session_or_401(request)
+        return await _handle_updates_check(request, session)
+
+    async def _handle_updates_apply(request: Request, session: Session) -> Any:
+        hx = _is_hx(request)
+        form = await request.form()
+        confirm = str(form.get("confirm") or form.get("confirm_update") or "").strip().lower()
+        if confirm not in ("yes", "on", "true", "install"):
+            msg = "Confirmation required: check the box to install updates."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/job_status.html",
+                    {"job": None, "error": msg}, status_code=200,
+                )
+            # non-HTMX: render control page with error
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
+        data, kind, detail = await create_update_job(session.token, "apply")
+        if kind == "unauthorized":
+            session_store.revoke(request.cookies.get(settings.cookie_name))
+            raise HTTPException(status_code=401, detail="Upstream rejected credentials")
+        if kind != "ok":
+            msg = detail or "Update install failed."
+            if kind == "forbidden":
+                msg = "Admin token required to install updates."
+            if kind == "conflict":
+                msg = msg or "Operation conflict."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/job_status.html",
+                    {"job": None, "error": msg}, status_code=200,
+                )
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
+        session.last_update_job_id = data.get("id")
+        if hx:
+            return templates.TemplateResponse(
+                request, "partials/job_status.html", {"job": data, "error": None}
+            )
+        return RedirectResponse("/control", status_code=303)
+
+    @app.post("/control/updates/apply", response_class=HTMLResponse)
+    async def control_updates_apply(request: Request) -> Any:
+        if not _origin_ok(request):
+            raise HTTPException(status_code=403, detail="Cross-origin request rejected")
+        session = _session_or_401(request)
+        return await _handle_updates_apply(request, session)
+
+    @app.post("/control/power-actions", response_class=HTMLResponse)
+    async def control_power_create(request: Request) -> Any:
+        if not _origin_ok(request):
+            raise HTTPException(status_code=403, detail="Cross-origin request rejected")
+        session = _session_or_401(request)
+        hx = _is_hx(request)
+        form = await request.form()
+        action = str(form.get("action") or "").strip().lower()
+        if action not in ("reboot", "shutdown"):
+            msg = "Invalid power action."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/power_status.html",
+                    {"power": None, "error": msg}, status_code=200,
+                )
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
+        # delay validation
+        raw_delay = form.get("delay_seconds")
+        try:
+            delay = int(str(raw_delay).strip()) if raw_delay is not None and str(raw_delay).strip() != "" else 60
+        except (TypeError, ValueError):
+            delay = -1
+        if delay < 10 or delay > 3600:
+            msg = "Delay must be between 10 and 3600 seconds."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/power_status.html",
+                    {"power": None, "error": msg}, status_code=200,
+                )
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
+        confirmation = str(form.get("confirmation") or "").strip()
+        if confirmation != action:
+            msg = "Confirmation must exactly match the action."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/power_status.html",
+                    {"power": None, "error": msg}, status_code=200,
+                )
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
+
+        data, kind, detail = await create_power_action(session.token, action, delay, confirmation)
+        if kind == "unauthorized":
+            session_store.revoke(request.cookies.get(settings.cookie_name))
+            raise HTTPException(status_code=401, detail="Upstream rejected credentials")
+        if kind != "ok":
+            msg = detail or "Power action failed."
+            if kind == "forbidden":
+                msg = "Admin token required for power actions."
+            if kind == "conflict":
+                msg = msg or "Operation conflict."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/power_status.html",
+                    {"power": None, "error": msg}, status_code=200,
+                )
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
+        session.last_power_action_id = data.get("id")
+        if hx:
+            return templates.TemplateResponse(
+                request, "partials/power_status.html", {"power": data, "error": None}
+            )
+        return RedirectResponse("/control", status_code=303)
+
+    @app.post("/control/power-actions/{action_id}/cancel", response_class=HTMLResponse)
+    async def control_power_cancel(request: Request, action_id: str) -> Any:
+        if not _origin_ok(request):
+            raise HTTPException(status_code=403, detail="Cross-origin request rejected")
+        session = _session_or_401(request)
+        hx = _is_hx(request)
+        data, kind, detail = await cancel_power_action(session.token, action_id)
+        if kind == "unauthorized":
+            session_store.revoke(request.cookies.get(settings.cookie_name))
+            raise HTTPException(status_code=401, detail="Upstream rejected credentials")
+        if kind != "ok":
+            msg = detail or "Cancel failed."
+            if kind == "conflict":
+                msg = msg or "Action is no longer cancellable."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/power_status.html",
+                    {"power": None, "error": msg}, status_code=200,
+                )
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
+        if hx:
+            return templates.TemplateResponse(
+                request, "partials/power_status.html", {"power": data, "error": None}
+            )
+        return RedirectResponse("/control", status_code=303)
 
     return app
 

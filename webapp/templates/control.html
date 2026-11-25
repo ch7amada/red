@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Control - Linux Monitor{% endblock %}
+{% block rail_footer %}{% include "partials/connection_panel.html" %}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <h1>Control</h1>
+    <p class="muted">Updates and power actions. Mutations require an admin token.</p>
+  </div>
+</header>
+
+{% if error %}
+<div class="alert" role="alert">{{ error }}</div>
+{% endif %}
+
+{% if unavailable %}
+<div class="alert" role="alert">Monitoring server unavailable or degraded.</div>
+{% endif %}
+
+{% if role == "reader" %}
+<article class="card reader-note">
+  <h2>Reader access</h2>
+  <p class="muted">You are signed in as a reader. Update and power actions require an admin token; this view is read-only.</p>
+</article>
+{% endif %}
+
+<div class="control-grid">
+  <article class="card">
+    <h2>Updates</h2>
+    <div id="updates-status">
+      {% if job %}{% include "partials/job_status.html" %}
+      {% elif job_id %}<div hx-get="/control/jobs/{{ job_id }}" hx-trigger="load" hx-swap="outerHTML" class="muted">Loading operation…</div>
+      {% else %}<p class="muted">No update operation running.</p>{% endif %}
+    </div>
+    {% if role == "admin" %}
+    <div class="card-actions">
+      <form method="post" action="/control/updates/check" class="inline-form">
+        <button type="submit" class="btn btn-primary"
+                hx-post="/control/updates/check"
+                hx-target="#updates-status"
+                hx-swap="innerHTML"
+                hx-indicator="#updates-indicator"
+                hx-disabled-elt="this">Check for updates</button>
+        <span id="updates-indicator" class="htmx-indicator" aria-live="polite">Checking…</span>
+      </form>
+      <form method="post" action="/control/updates/apply" class="confirm-form">
+        <label class="checkbox-row">
+          <input type="checkbox" name="confirm" value="yes" required>
+          <span>I confirm I want to install updates</span>
+        </label>
+        <button type="submit" class="btn btn-ghost"
+                hx-post="/control/updates/apply"
+                hx-target="#updates-status"
+                hx-swap="innerHTML"
+                hx-indicator="#updates-indicator2"
+                hx-disabled-elt="this">Install updates</button>
+        <span id="updates-indicator2" class="htmx-indicator" aria-live="polite">Installing…</span>
+      </form>
+    </div>
+    {% endif %}
+  </article>
+
+  <article class="card">
+    <h2>Power</h2>
+    <div id="power-status">
+      {% if power %}{% include "partials/power_status.html" %}
+      {% elif power_id %}<div hx-get="/control/power-actions/{{ power_id }}" hx-trigger="load" hx-swap="outerHTML" class="muted">Loading power action…</div>
+      {% else %}<p class="muted">No power action scheduled.</p>{% endif %}
+    </div>
+    {% if role == "admin" %}
+    <form method="post" action="/control/power-actions" class="power-form">
+      <label for="power-action">Action</label>
+      <select id="power-action" name="action" required>
+        <option value="reboot">Reboot</option>
+        <option value="shutdown">Shutdown</option>
+      </select>
+      <label for="power-delay">Delay (seconds, 10–3600)</label>
+      <input id="power-delay" type="number" name="delay_seconds" value="60" min="10" max="3600" required>
+      <label for="power-confirm">Type the action to confirm</label>
+      <input id="power-confirm" type="text" name="confirmation" required autocomplete="off">
+      <button type="submit" class="btn btn-primary"
+              hx-post="/control/power-actions"
+              hx-target="#power-status"
+              hx-swap="innerHTML"
+              hx-indicator="#power-indicator"
+              hx-disabled-elt="this">Schedule power action</button>
+      <span id="power-indicator" class="htmx-indicator" aria-live="polite">Scheduling…</span>
+    </form>
+    {% endif %}
+  </article>
+</div>
+{% endblock %}

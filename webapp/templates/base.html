@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}Linux Monitor{% endblock %}</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/css/app.css">
   <script src="/static/vendor/htmx.min.js"
           integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
@@ -22,7 +23,8 @@
         </div>
       </div>
       <nav class="rail-nav">
-        <a class="nav-item active" href="/" aria-current="page">Overview</a>
+        <a class="nav-item {% if request.url.path == '/' %}active{% endif %}" href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Overview</a>
+        <a class="nav-item {% if request.url.path == '/control' %}active{% endif %}" href="/control" {% if request.url.path == '/control' %}aria-current="page"{% endif %}>Control</a>
       </nav>
       <div class="rail-footer">
         {% block rail_footer %}{% endblock %}

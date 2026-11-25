@@ -1,0 +1,38 @@
+{% if error %}
+<div class="status-block" role="alert">
+  <p class="error-text">{{ error }}</p>
+</div>
+{% elif job %}
+<div class="status-block" id="job-status-{{ job.id }}"
+     {% if job.status not in ('succeeded', 'failed', 'interrupted') %}hx-get="/control/jobs/{{ job.id }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <p><strong>Status:</strong> <span aria-live="polite">{{ job.status }}</span></p>
+  {% if job.status in ('queued', 'running') %}
+  <p class="muted">Operation in progress…</p>
+  {% endif %}
+  {% if job.result and job.result.packages %}
+  <h3>Packages</h3>
+  <ul class="package-list">
+    {% for p in job.result.packages %}
+    <li>{{ p.name }}: {{ p.current }} → {{ p.candidate }}</li>
+    {% endfor %}
+  </ul>
+  {% if job.result.count is not none %}
+  <p class="muted">{{ job.result.count }} package(s)</p>
+  {% endif %}
+  {% endif %}
+  {% if job.result and job.result.reboot_required %}
+  <p class="alert-inline">Reboot required</p>
+  {% endif %}
+  {% if job.output %}
+  <pre class="output">{{ job.output }}</pre>
+  {% endif %}
+  {% if job.output_truncated %}
+  <p class="muted">Output truncated.</p>
+  {% endif %}
+  {% if job.error_code or job.error_message %}
+  <p class="error-text">{{ job.error_code }} {{ job.error_message }}</p>
+  {% endif %}
+</div>
+{% else %}
+<p class="muted">No update operation.</p>
+{% endif %}

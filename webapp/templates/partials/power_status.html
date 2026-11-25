@@ -1,0 +1,27 @@
+{% if error %}
+<div class="status-block" role="alert">
+  <p class="error-text">{{ error }}</p>
+</div>
+{% elif power %}
+<div class="status-block" id="power-status-{{ power.id }}"
+     {% if power.status not in ('cancelled', 'failed', 'unknown', 'completed') %}hx-get="/control/power-actions/{{ power.id }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  <p><strong>Action:</strong> {{ power.action }}</p>
+  <p><strong>Status:</strong> <span aria-live="polite">{{ power.status }}</span></p>
+  {% if power.scheduled_for %}
+  <p><strong>Scheduled for:</strong> {{ power.scheduled_for | dt }}</p>
+  {% endif %}
+  {% if power.cancellable %}
+  <form method="post" action="/control/power-actions/{{ power.id }}/cancel" class="inline-form">
+    <button type="submit" class="btn btn-ghost"
+            hx-post="/control/power-actions/{{ power.id }}/cancel"
+            hx-target="#power-status-{{ power.id }}"
+            hx-swap="outerHTML"
+            hx-indicator="#cancel-indicator-{{ power.id }}"
+            hx-disabled-elt="this">Cancel</button>
+    <span id="cancel-indicator-{{ power.id }}" class="htmx-indicator" aria-live="polite">Cancelling…</span>
+  </form>
+  {% endif %}
+</div>
+{% else %}
+<p class="muted">No power action scheduled.</p>
+{% endif %}
