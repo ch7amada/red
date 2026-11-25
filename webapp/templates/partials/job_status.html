@@ -18,10 +18,10 @@
     <li>{{ p.name }}: {{ p.current }} → {{ p.candidate }}</li>
     {% endfor %}
   </ul>
-  {% elif job.result %}
+  {% elif job.result and job.kind == "update_check" and job.result.count == 0 %}
   <p class="muted">No packages to update.</p>
   {% endif %}
-  {% if job.result and job.result.count is not none %}
+  {% if job.result and job.result.count is defined %}
   <p class="muted">{{ job.result.count }} package(s)</p>
   {% endif %}
   {% if job.result and job.result.reboot_required %}

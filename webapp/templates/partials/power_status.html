@@ -1,12 +1,6 @@
-{% if error %}
-<div class="status-block" role="alert"
-     {% if action_id %}hx-get="/control/power-actions/{{ action_id }}" hx-trigger="load delay:2s" hx-swap="outerHTML"{% endif %}>
-  <p class="error-text">{{ error }}</p>
-  {% if action_id %}<p class="muted">Retrying…</p>{% endif %}
-</div>
-{% elif power %}
-<div class="status-block" id="power-status-{{ power.id }}"
-     {% if power.status not in ('cancelled', 'failed', 'unknown', 'completed') %}hx-get="/control/power-actions/{{ power.id }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+{% if power %}
+<div class="status-block" id="power-status"
+     {% if power.status not in ('cancelled', 'failed', 'unknown', 'completed') %}hx-get="/control/power-actions/{{ power.id }}" hx-trigger="every 2s" hx-swap="outerHTML" hx-sync="#power-status:drop"{% endif %}>
   <p><strong>Action:</strong> {{ power.action }}</p>
   <p><strong>Status:</strong> <span aria-live="polite">{{ power.status }}</span></p>
   {% if power.scheduled_for %}
@@ -15,17 +9,27 @@
   {% if power and not power.cancellable and power.status not in ('cancelled', 'failed', 'completed', 'unknown') %}
   <p class="muted">Cancellation window closed.</p>
   {% endif %}
+  {% if error %}
+  <div role="alert"><p class="error-text">{{ error }}</p></div>
+  {% endif %}
   {% if power.cancellable %}
   <form method="post" action="/control/power-actions/{{ power.id }}/cancel" class="inline-form">
     <button id="cancel-power-action" type="submit" class="btn btn-ghost"
             hx-post="/control/power-actions/{{ power.id }}/cancel"
-            hx-target="#power-status-{{ power.id }}"
+            hx-target="#power-status"
             hx-swap="outerHTML"
+            hx-sync="#power-status:replace"
             hx-indicator="#cancel-indicator-{{ power.id }}"
             hx-disabled-elt="this">Cancel</button>
     <span id="cancel-indicator-{{ power.id }}" class="htmx-indicator" aria-live="polite">Cancelling…</span>
   </form>
   {% endif %}
+</div>
+{% elif error %}
+<div class="status-block" role="alert"
+     {% if action_id %}hx-get="/control/power-actions/{{ action_id }}" hx-trigger="load delay:2s" hx-swap="outerHTML" hx-sync="#power-status:drop"{% endif %}>
+  <p class="error-text">{{ error }}</p>
+  {% if action_id %}<p class="muted">Retrying…</p>{% endif %}
 </div>
 {% else %}
 <p class="muted">No power action scheduled.</p>

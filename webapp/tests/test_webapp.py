@@ -187,7 +187,7 @@ def test_control_admin_view():
         if request.url.path == "/api/v1/system":
             return httpx.Response(200, json=_snapshot())
         if request.url.path.startswith("/api/v1/jobs/"):
-            return httpx.Response(404, json={"error": {"code": "not_found"}})
+            return httpx.Response(404, json={"error": {"code": "job_not_found", "message": "job not found"}})
         return httpx.Response(404)
 
     client = _make(handler)
@@ -374,6 +374,30 @@ def test_power_cancel():
     r2 = client.post("/control/power-actions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/cancel", cookies=cookies, headers={"HX-Request": "true", "origin": "http://testserver"}, follow_redirects=False)
     assert r2.status_code == 200
     assert "cancelled" in r2.text
+
+
+def test_power_cancel_failure_leaves_cancel_visible():
+    async def handler(request):
+        if request.url.path == "/api/v1/system":
+            return httpx.Response(200, json=_snapshot())
+        if request.url.path == "/api/v1/jobs/00000000-0000-0000-0000-000000000000":
+            return httpx.Response(404, json={"error": {"code": "job_not_found", "message": "job not found"}})
+        if request.url.path == "/api/v1/power-actions" and request.method == "POST":
+            return httpx.Response(202, json=_power())
+        if request.url.path == "/api/v1/power-actions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" and request.method == "DELETE":
+            return httpx.Response(409, json={"error": {"code": "conflict", "message": "busy"}})
+        if request.url.path.startswith("/api/v1/power-actions/"):
+            return httpx.Response(200, json=_power())
+        return httpx.Response(404)
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    cookies = r.cookies
+    client.post("/control/power-actions", data={"action": "reboot", "delay_seconds": "60", "confirmation": "reboot"}, cookies=cookies, headers={"HX-Request": "true", "origin": "http://testserver"}, follow_redirects=False)
+    r2 = client.post("/control/power-actions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/cancel", cookies=cookies, headers={"HX-Request": "true", "origin": "http://testserver"}, follow_redirects=False)
+    assert r2.status_code == 200
+    assert "cancel-power-action" in r2.text
+    assert "busy" in r2.text.lower() or "conflict" in r2.text.lower()
 
 
 def test_overview_503_hx_reswap():

@@ -354,7 +354,7 @@ def create_app(
     async def cancel_power_action(token: str, action_id: str) -> tuple[Optional[dict], str, str]:
         if not _is_uuid(action_id):
             return None, "not_found", "Power action not found."
-        return await _call(token, "DELETE", f"/api/v1/power-actions/{action_id}", timeout=10.0)
+        return await _call(token, "DELETE", f"/api/v1/power-actions/{action_id}", timeout=120.0)
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
@@ -473,7 +473,7 @@ def create_app(
             raise HTTPException(status_code=401, detail="Upstream rejected credentials")
         if kind == "forbidden":
             role = "reader"
-        elif kind == "not_found":
+        elif kind == "not_found" and str(detail).startswith("job_not_found:"):
             role = "admin"
         else:
             role = "unknown"
@@ -523,9 +523,17 @@ def create_app(
             session_store.revoke(request.cookies.get(settings.cookie_name))
             raise HTTPException(status_code=401, detail="Upstream rejected credentials")
         if kind == "not_found":
+            if session.last_update_job_id == job_id:
+                session.last_update_job_id = None
             return templates.TemplateResponse(
                 request, "partials/job_status.html",
-                {"job": None, "error": detail or "Operation not found.", "job_id": job_id},
+                {"job": None, "error": detail or "Operation not found.", "job_id": None},
+                status_code=200,
+            )
+        if kind == "forbidden":
+            return templates.TemplateResponse(
+                request, "partials/job_status.html",
+                {"job": None, "error": detail or "Operation forbidden.", "job_id": None},
                 status_code=200,
             )
         if kind != "ok":
@@ -553,9 +561,17 @@ def create_app(
             session_store.revoke(request.cookies.get(settings.cookie_name))
             raise HTTPException(status_code=401, detail="Upstream rejected credentials")
         if kind == "not_found":
+            if session.last_power_action_id == action_id:
+                session.last_power_action_id = None
             return templates.TemplateResponse(
                 request, "partials/power_status.html",
-                {"power": None, "error": detail or "Power action not found.", "action_id": action_id},
+                {"power": None, "error": detail or "Power action not found.", "action_id": None},
+                status_code=200,
+            )
+        if kind == "forbidden":
+            return templates.TemplateResponse(
+                request, "partials/power_status.html",
+                {"power": None, "error": detail or "Power action forbidden.", "action_id": None},
                 status_code=200,
             )
         if kind != "ok":
@@ -587,7 +603,9 @@ def create_app(
                     {"job": None, "error": msg, "job_id": None},
                     status_code=200,
                 )
-            return RedirectResponse("/control", status_code=303)
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
         session.last_update_job_id = data.get("id")
         if hx:
             return templates.TemplateResponse(
@@ -606,7 +624,7 @@ def create_app(
     async def _handle_updates_apply(request: Request, session: Session) -> Any:
         hx = _is_hx(request)
         form = await request.form()
-        confirm = str(form.get("confirm") or "").strip().lower()
+        confirm = form.get("confirm")
         if confirm != "yes":
             msg = "Confirmation required: check the box to install updates."
             if hx:
