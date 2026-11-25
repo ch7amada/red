@@ -1,6 +1,8 @@
 {% if error %}
-<div class="status-block" role="alert">
+<div class="status-block" role="alert"
+     {% if job_id %}hx-get="/control/jobs/{{ job_id }}" hx-trigger="load delay:2s" hx-swap="outerHTML"{% endif %}>
   <p class="error-text">{{ error }}</p>
+  {% if job_id %}<p class="muted">Retrying…</p>{% endif %}
 </div>
 {% elif job %}
 <div class="status-block" id="job-status-{{ job.id }}"
@@ -16,9 +18,11 @@
     <li>{{ p.name }}: {{ p.current }} → {{ p.candidate }}</li>
     {% endfor %}
   </ul>
-  {% if job.result.count is not none %}
-  <p class="muted">{{ job.result.count }} package(s)</p>
+  {% elif job.result %}
+  <p class="muted">No packages to update.</p>
   {% endif %}
+  {% if job.result and job.result.count is not none %}
+  <p class="muted">{{ job.result.count }} package(s)</p>
   {% endif %}
   {% if job.result and job.result.reboot_required %}
   <p class="alert-inline">Reboot required</p>

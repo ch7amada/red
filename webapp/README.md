@@ -33,9 +33,27 @@ Default bind is `127.0.0.1:8080`.
 
 The web app does not accept a user-controlled upstream target and does not proxy arbitrary requests.
 
-## Authentication
+## Authentication and roles
 
 Open the app, choose **Connect**, and paste a reader or admin bearer token. The token is validated once with `GET /api/v1/system`, then kept in server memory in a bounded, expiring per-browser session. The browser receives only an opaque, `HttpOnly`, `SameSite=Strict` cookie (secure when served over HTTPS). Use **Disconnect** to revoke the session.
+
+Tokens must contain only visible ASCII characters. Reader tokens can view dashboards; admin tokens can run update and power actions.
+
+## Control page
+
+Control confirms and tracks active jobs and power actions per browser session. Update and power mutations require an admin token and exact confirmation (checkbox value `yes` for updates, typed action name for power actions). The latest job/action ID is recorded only when an operation is created; polling and status views do not overwrite or clear newer IDs. Cancel is allowed only for the currently tracked power action.
+
+## Session storage and expiry
+
+Sessions are stored in server memory with an idle TTL. The cookie is a browser session cookie, so expiry is enforced by the memory store rather than a fixed client-side deadline. Active polling keeps a session alive. Server restarts clear all sessions and tracked job/action IDs; users reconnect afterward.
+
+## Single-worker limits
+
+The in-memory session store is process-local. Run a single worker/process for consistent session and job tracking.
+
+## HTTPS proxy
+
+When deployed behind a proxy, preserve the original `Host` header and trusted scheme so origin checks and secure cookies work correctly (for example, `X-Forwarded-Proto` handling at the proxy). The app trusts the request URL scheme for cookie security.
 
 ## Tests
 

@@ -6,6 +6,7 @@ import os
 import secrets
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -172,6 +173,14 @@ def _origin_ok(request: Request) -> bool:
     return origin == expected
 
 
+def _is_uuid(value: Any) -> bool:
+    try:
+        uuid.UUID(str(value))
+    except (ValueError, AttributeError, TypeError):
+        return False
+    return True
+
+
 class NoStoreMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Any:
         response = await call_next(request)
@@ -199,6 +208,7 @@ def create_app(
             transport=transport,
             base_url=settings.upstream_url,
             timeout=httpx.Timeout(10.0),
+            limits=httpx.Limits(keepalive_expiry=2.0),
             follow_redirects=False,
             trust_env=False,
         )
@@ -238,169 +248,113 @@ def create_app(
             raise HTTPException(status_code=401, detail="Session expired or missing")
         return session
 
-    async def fetch_system(token: str) -> tuple[Optional[dict], str]:
-        """Return (payload, error_kind) where error_kind is '' on success."""
-        try:
-            response = await upstream.get(
-                "/api/v1/system", headers={"Authorization": f"Bearer {token}"}
-            )
-        except httpx.HTTPError:
-            return None, "unavailable"
-        if response.status_code in (401, 403):
-            return None, "invalid"
-        if not response.is_success:
-            return None, "unavailable"
-        try:
-            return response.json(), ""
-        except ValueError:
-            return None, "unavailable"
-
-    ZERO_JOB_ID = "00000000-0000-0000-0000-000000000000"
-
     def _error_detail(response: httpx.Response) -> str:
         try:
             data = response.json()
-            err = data.get("error", {}) if isinstance(data, dict) else {}
-            code = err.get("code") if isinstance(err, dict) else None
-            msg = err.get("message") if isinstance(err, dict) else None
-            if code and msg:
-                return f"{code}: {msg}"
-            if msg:
-                return str(msg)
-            if code:
-                return str(code)
-        except (ValueError, AttributeError):
+            if isinstance(data, dict):
+                err = data.get("error", {})
+                if isinstance(err, dict):
+                    code = err.get("code")
+                    msg = err.get("message")
+                    if code and msg:
+                        return f"{code}: {msg}"
+                    if msg:
+                        return str(msg)
+                    if code:
+                        return str(code)
+        except (ValueError, AttributeError, TypeError):
             pass
-        text = (response.text or "").strip()
-        return text if text else f"HTTP {response.status_code}"
+        return f"HTTP {response.status_code}"
+
+    async def _call(
+        token: str,
+        method: str,
+        path: str,
+        *,
+        timeout: float = 10.0,
+        json_body: Optional[dict] = None,
+    ) -> tuple[Optional[dict], str, str]:
+        try:
+            response = await upstream.request(
+                method,
+                path,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=httpx.Timeout(timeout),
+                json=json_body,
+            )
+        except httpx.HTTPError:
+            return None, "unavailable", "Monitoring server unavailable."
+        status = response.status_code
+        data: Optional[dict] = None
+        parsed_object = False
+        if response.content:
+            try:
+                parsed = response.json()
+                if isinstance(parsed, dict):
+                    data = parsed
+                    parsed_object = True
+            except (ValueError, TypeError):
+                pass
+        if status == 401:
+            kind = "unauthorized"
+        elif status == 403:
+            kind = "forbidden"
+        elif status == 404:
+            kind = "not_found"
+        elif status == 409:
+            kind = "conflict"
+        elif status == 422:
+            kind = "invalid"
+        elif status in (503, 504):
+            kind = "unavailable"
+        elif 200 <= status < 300:
+            kind = "ok"
+        else:
+            kind = "unavailable"
+        if kind == "ok":
+            if not parsed_object:
+                return None, "unavailable", "Invalid response from monitoring server."
+            return data, "ok", ""
+        detail = _error_detail(response)
+        return None, kind, detail if detail else f"HTTP {status}"
+
+    async def fetch_system(token: str) -> tuple[Optional[dict], str]:
+        data, kind, _ = await _call(token, "GET", "/api/v1/system", timeout=10.0)
+        if kind == "ok":
+            return data, ""
+        if kind in ("unauthorized", "forbidden"):
+            return None, "invalid"
+        return None, "unavailable"
+
+    ZERO_JOB_ID = "00000000-0000-0000-0000-000000000000"
 
     async def fetch_job(token: str, job_id: str) -> tuple[Optional[dict], str, str]:
-        try:
-            response = await upstream.get(
-                f"/api/v1/jobs/{job_id}",
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=httpx.Timeout(10.0),
-            )
-        except httpx.HTTPError:
-            return None, "unavailable", "Monitoring server unavailable."
-        if response.status_code == 401:
-            return None, "unauthorized", _error_detail(response)
-        if response.status_code == 403:
-            return None, "forbidden", _error_detail(response)
-        if response.status_code == 404:
-            return None, "not_found", _error_detail(response)
-        if not response.is_success:
-            return None, "unavailable", _error_detail(response)
-        try:
-            return response.json(), "ok", ""
-        except ValueError:
-            return None, "unavailable", "Invalid response from monitoring server."
+        if not _is_uuid(job_id):
+            return None, "not_found", "Job not found."
+        return await _call(token, "GET", f"/api/v1/jobs/{job_id}", timeout=10.0)
 
     async def fetch_power(token: str, action_id: str) -> tuple[Optional[dict], str, str]:
-        try:
-            response = await upstream.get(
-                f"/api/v1/power-actions/{action_id}",
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=httpx.Timeout(10.0),
-            )
-        except httpx.HTTPError:
-            return None, "unavailable", "Monitoring server unavailable."
-        if response.status_code == 401:
-            return None, "unauthorized", _error_detail(response)
-        if response.status_code == 403:
-            return None, "forbidden", _error_detail(response)
-        if response.status_code == 404:
-            return None, "not_found", _error_detail(response)
-        if not response.is_success:
-            return None, "unavailable", _error_detail(response)
-        try:
-            return response.json(), "ok", ""
-        except ValueError:
-            return None, "unavailable", "Invalid response from monitoring server."
+        if not _is_uuid(action_id):
+            return None, "not_found", "Power action not found."
+        return await _call(token, "GET", f"/api/v1/power-actions/{action_id}", timeout=10.0)
 
     async def create_update_job(token: str, kind: str) -> tuple[Optional[dict], str, str]:
         path = "/api/v1/updates/check" if kind == "check" else "/api/v1/updates/apply"
-        try:
-            response = await upstream.post(
-                path, headers={"Authorization": f"Bearer {token}"}, timeout=httpx.Timeout(10.0)
-            )
-        except httpx.HTTPError:
-            return None, "unavailable", "Monitoring server unavailable."
-        if response.status_code == 401:
-            return None, "unauthorized", _error_detail(response)
-        if response.status_code == 403:
-            return None, "forbidden", _error_detail(response)
-        if response.status_code == 404:
-            return None, "not_found", _error_detail(response)
-        if response.status_code == 409:
-            return None, "conflict", _error_detail(response)
-        if response.status_code == 422:
-            return None, "invalid", _error_detail(response)
-        if response.status_code in (503, 504):
-            return None, "unavailable", _error_detail(response)
-        if not response.is_success:
-            return None, "unavailable", _error_detail(response)
-        try:
-            return response.json(), "ok", ""
-        except ValueError:
-            return None, "unavailable", "Invalid response from monitoring server."
+        return await _call(token, "POST", path, timeout=10.0)
 
     async def create_power_action(token: str, action: str, delay: int, confirmation: str) -> tuple[Optional[dict], str, str]:
-        try:
-            response = await upstream.post(
-                "/api/v1/power-actions",
-                headers={"Authorization": f"Bearer {token}"},
-                json={"action": action, "delay_seconds": delay, "confirmation": confirmation},
-                timeout=httpx.Timeout(120.0),
-            )
-        except httpx.HTTPError:
-            return None, "unavailable", "Monitoring server unavailable."
-        if response.status_code == 401:
-            return None, "unauthorized", _error_detail(response)
-        if response.status_code == 403:
-            return None, "forbidden", _error_detail(response)
-        if response.status_code == 404:
-            return None, "not_found", _error_detail(response)
-        if response.status_code == 409:
-            return None, "conflict", _error_detail(response)
-        if response.status_code == 422:
-            return None, "invalid", _error_detail(response)
-        if response.status_code in (503, 504):
-            return None, "unavailable", _error_detail(response)
-        if not response.is_success:
-            return None, "unavailable", _error_detail(response)
-        try:
-            return response.json(), "ok", ""
-        except ValueError:
-            return None, "unavailable", "Invalid response from monitoring server."
+        return await _call(
+            token,
+            "POST",
+            "/api/v1/power-actions",
+            timeout=120.0,
+            json_body={"action": action, "delay_seconds": delay, "confirmation": confirmation},
+        )
 
     async def cancel_power_action(token: str, action_id: str) -> tuple[Optional[dict], str, str]:
-        try:
-            response = await upstream.delete(
-                f"/api/v1/power-actions/{action_id}",
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=httpx.Timeout(10.0),
-            )
-        except httpx.HTTPError:
-            return None, "unavailable", "Monitoring server unavailable."
-        if response.status_code == 401:
-            return None, "unauthorized", _error_detail(response)
-        if response.status_code == 403:
-            return None, "forbidden", _error_detail(response)
-        if response.status_code == 404:
-            return None, "not_found", _error_detail(response)
-        if response.status_code == 409:
-            return None, "conflict", _error_detail(response)
-        if response.status_code == 422:
-            return None, "invalid", _error_detail(response)
-        if response.status_code in (503, 504):
-            return None, "unavailable", _error_detail(response)
-        if not response.is_success:
-            return None, "unavailable", _error_detail(response)
-        try:
-            return response.json(), "ok", ""
-        except ValueError:
-            return None, "unavailable", "Invalid response from monitoring server."
+        if not _is_uuid(action_id):
+            return None, "not_found", "Power action not found."
+        return await _call(token, "DELETE", f"/api/v1/power-actions/{action_id}", timeout=10.0)
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> Response:
@@ -428,8 +382,14 @@ def create_app(
         token = str(form.get("token") or "").strip()
         if not token:
             return templates.TemplateResponse(
-                "connect.html",
-                {"request": request, "error": "Token is required."},
+                request, "connect.html",
+                {"error": "Token is required."},
+                status_code=400,
+            )
+        if any(ord(ch) < 0x21 or ord(ch) > 0x7E for ch in token):
+            return templates.TemplateResponse(
+                request, "connect.html",
+                {"error": "Token must contain only visible ASCII characters."},
                 status_code=400,
             )
         payload, kind = await fetch_system(token)
@@ -454,7 +414,6 @@ def create_app(
             httponly=True,
             samesite="strict",
             secure=secure,
-            max_age=settings.session_ttl_seconds,
             path="/",
         )
         return response
@@ -476,12 +435,14 @@ def create_app(
             session_store.revoke(request.cookies.get(settings.cookie_name))
             raise HTTPException(status_code=401, detail="Upstream rejected credentials")
         if kind == "unavailable":
+            hx = bool(request.headers.get("HX-Request"))
+            status_code = 200 if hx else 503
             response = templates.TemplateResponse(
                 request, "partials/overview.html",
                 {"error": "Monitoring server unavailable or degraded.", "snapshot": None},
-                status_code=503,
+                status_code=status_code,
             )
-            if request.headers.get("HX-Request"):
+            if hx:
                 response.headers["HX-Reswap"] = "innerHTML"
             return response
         return templates.TemplateResponse(
@@ -499,7 +460,6 @@ def create_app(
         return session
 
     async def _control_context(request: Request, session: Session) -> dict[str, Any]:
-        # Determine reader vs admin using harmless job lookup.
         job_id = session.last_update_job_id
         power_id = session.last_power_action_id
         job = None
@@ -519,31 +479,19 @@ def create_app(
             role = "unknown"
             unavailable = True
             error = detail or "Monitoring server unavailable."
-        # Retain ids: fetch current status when present.
-        if job_id:
+        if job_id and _is_uuid(job_id):
             jdata, jkind, jdetail = await fetch_job(session.token, job_id)
             if jkind == "unauthorized":
                 session_store.revoke(request.cookies.get(settings.cookie_name))
                 raise HTTPException(status_code=401, detail="Upstream rejected credentials")
-            if jkind == "not_found":
-                session.last_update_job_id = None
-                job_id = None
-                job = None
-            elif jkind == "ok":
+            if jkind == "ok":
                 job = jdata
-            else:
-                # keep id; surface error via job None and error? store last error in job_error
-                pass
-        if power_id:
+        if power_id and _is_uuid(power_id):
             pdata, pkind, pdetail = await fetch_power(session.token, power_id)
             if pkind == "unauthorized":
                 session_store.revoke(request.cookies.get(settings.cookie_name))
                 raise HTTPException(status_code=401, detail="Upstream rejected credentials")
-            if pkind == "not_found":
-                session.last_power_action_id = None
-                power_id = None
-                power = None
-            elif pkind == "ok":
+            if pkind == "ok":
                 power = pdata
         return {
             "role": role,
@@ -564,47 +512,61 @@ def create_app(
     @app.get("/control/jobs/{job_id}", response_class=HTMLResponse)
     async def control_job_status(request: Request, job_id: str) -> Any:
         session = _session_or_401(request)
+        if not _is_uuid(job_id):
+            return templates.TemplateResponse(
+                request, "partials/job_status.html",
+                {"job": None, "error": "Invalid operation id.", "job_id": None},
+                status_code=400,
+            )
         data, kind, detail = await fetch_job(session.token, job_id)
         if kind == "unauthorized":
             session_store.revoke(request.cookies.get(settings.cookie_name))
             raise HTTPException(status_code=401, detail="Upstream rejected credentials")
         if kind == "not_found":
-            session.last_update_job_id = None
             return templates.TemplateResponse(
                 request, "partials/job_status.html",
-                {"job": None, "error": detail or "Operation not found."},
+                {"job": None, "error": detail or "Operation not found.", "job_id": job_id},
+                status_code=200,
             )
         if kind != "ok":
             return templates.TemplateResponse(
                 request, "partials/job_status.html",
-                {"job": None, "error": detail or "Operation unavailable."},
+                {"job": None, "error": detail or "Operation unavailable.", "job_id": job_id},
+                status_code=200,
             )
-        session.last_update_job_id = job_id
         return templates.TemplateResponse(
-            request, "partials/job_status.html", {"job": data, "error": None}
+            request, "partials/job_status.html",
+            {"job": data, "error": None, "job_id": job_id},
         )
 
     @app.get("/control/power-actions/{action_id}", response_class=HTMLResponse)
     async def control_power_status(request: Request, action_id: str) -> Any:
         session = _session_or_401(request)
+        if not _is_uuid(action_id):
+            return templates.TemplateResponse(
+                request, "partials/power_status.html",
+                {"power": None, "error": "Invalid power action id.", "action_id": None},
+                status_code=400,
+            )
         data, kind, detail = await fetch_power(session.token, action_id)
         if kind == "unauthorized":
             session_store.revoke(request.cookies.get(settings.cookie_name))
             raise HTTPException(status_code=401, detail="Upstream rejected credentials")
         if kind == "not_found":
-            session.last_power_action_id = None
             return templates.TemplateResponse(
                 request, "partials/power_status.html",
-                {"power": None, "error": detail or "Power action not found."},
+                {"power": None, "error": detail or "Power action not found.", "action_id": action_id},
+                status_code=200,
             )
         if kind != "ok":
             return templates.TemplateResponse(
                 request, "partials/power_status.html",
-                {"power": None, "error": detail or "Power action unavailable."},
+                {"power": None, "error": detail or "Power action unavailable.", "action_id": action_id},
+                status_code=200,
             )
-        session.last_power_action_id = action_id
         return templates.TemplateResponse(
-            request, "partials/power_status.html", {"power": data, "error": None}
+            request, "partials/power_status.html",
+            {"power": data, "error": None, "action_id": action_id},
         )
 
     async def _handle_updates_check(request: Request, session: Session) -> Any:
@@ -622,13 +584,15 @@ def create_app(
             if hx:
                 return templates.TemplateResponse(
                     request, "partials/job_status.html",
-                    {"job": None, "error": msg}, status_code=200,
+                    {"job": None, "error": msg, "job_id": None},
+                    status_code=200,
                 )
             return RedirectResponse("/control", status_code=303)
         session.last_update_job_id = data.get("id")
         if hx:
             return templates.TemplateResponse(
-                request, "partials/job_status.html", {"job": data, "error": None}
+                request, "partials/job_status.html",
+                {"job": data, "error": None, "job_id": data.get("id")},
             )
         return RedirectResponse("/control", status_code=303)
 
@@ -642,15 +606,15 @@ def create_app(
     async def _handle_updates_apply(request: Request, session: Session) -> Any:
         hx = _is_hx(request)
         form = await request.form()
-        confirm = str(form.get("confirm") or form.get("confirm_update") or "").strip().lower()
-        if confirm not in ("yes", "on", "true", "install"):
+        confirm = str(form.get("confirm") or "").strip().lower()
+        if confirm != "yes":
             msg = "Confirmation required: check the box to install updates."
             if hx:
                 return templates.TemplateResponse(
                     request, "partials/job_status.html",
-                    {"job": None, "error": msg}, status_code=200,
+                    {"job": None, "error": msg, "job_id": None},
+                    status_code=200,
                 )
-            # non-HTMX: render control page with error
             ctx = await _control_context(request, session)
             ctx["error"] = msg
             return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
@@ -667,7 +631,8 @@ def create_app(
             if hx:
                 return templates.TemplateResponse(
                     request, "partials/job_status.html",
-                    {"job": None, "error": msg}, status_code=200,
+                    {"job": None, "error": msg, "job_id": None},
+                    status_code=200,
                 )
             ctx = await _control_context(request, session)
             ctx["error"] = msg
@@ -675,7 +640,8 @@ def create_app(
         session.last_update_job_id = data.get("id")
         if hx:
             return templates.TemplateResponse(
-                request, "partials/job_status.html", {"job": data, "error": None}
+                request, "partials/job_status.html",
+                {"job": data, "error": None, "job_id": data.get("id")},
             )
         return RedirectResponse("/control", status_code=303)
 
@@ -699,12 +665,12 @@ def create_app(
             if hx:
                 return templates.TemplateResponse(
                     request, "partials/power_status.html",
-                    {"power": None, "error": msg}, status_code=200,
+                    {"power": None, "error": msg, "action_id": None},
+                    status_code=200,
                 )
             ctx = await _control_context(request, session)
             ctx["error"] = msg
             return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
-        # delay validation
         raw_delay = form.get("delay_seconds")
         try:
             delay = int(str(raw_delay).strip()) if raw_delay is not None and str(raw_delay).strip() != "" else 60
@@ -715,7 +681,8 @@ def create_app(
             if hx:
                 return templates.TemplateResponse(
                     request, "partials/power_status.html",
-                    {"power": None, "error": msg}, status_code=200,
+                    {"power": None, "error": msg, "action_id": None},
+                    status_code=200,
                 )
             ctx = await _control_context(request, session)
             ctx["error"] = msg
@@ -726,7 +693,8 @@ def create_app(
             if hx:
                 return templates.TemplateResponse(
                     request, "partials/power_status.html",
-                    {"power": None, "error": msg}, status_code=200,
+                    {"power": None, "error": msg, "action_id": None},
+                    status_code=200,
                 )
             ctx = await _control_context(request, session)
             ctx["error"] = msg
@@ -745,7 +713,8 @@ def create_app(
             if hx:
                 return templates.TemplateResponse(
                     request, "partials/power_status.html",
-                    {"power": None, "error": msg}, status_code=200,
+                    {"power": None, "error": msg, "action_id": None},
+                    status_code=200,
                 )
             ctx = await _control_context(request, session)
             ctx["error"] = msg
@@ -753,7 +722,8 @@ def create_app(
         session.last_power_action_id = data.get("id")
         if hx:
             return templates.TemplateResponse(
-                request, "partials/power_status.html", {"power": data, "error": None}
+                request, "partials/power_status.html",
+                {"power": data, "error": None, "action_id": data.get("id")},
             )
         return RedirectResponse("/control", status_code=303)
 
@@ -763,6 +733,28 @@ def create_app(
             raise HTTPException(status_code=403, detail="Cross-origin request rejected")
         session = _session_or_401(request)
         hx = _is_hx(request)
+        if not _is_uuid(action_id):
+            msg = "Invalid power action id."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/power_status.html",
+                    {"power": None, "error": msg, "action_id": action_id},
+                    status_code=200,
+                )
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
+        if session.last_power_action_id != action_id:
+            msg = "Not the tracked power action."
+            if hx:
+                return templates.TemplateResponse(
+                    request, "partials/power_status.html",
+                    {"power": None, "error": msg, "action_id": action_id},
+                    status_code=409,
+                )
+            ctx = await _control_context(request, session)
+            ctx["error"] = msg
+            return templates.TemplateResponse(request, "control.html", ctx, status_code=409)
         data, kind, detail = await cancel_power_action(session.token, action_id)
         if kind == "unauthorized":
             session_store.revoke(request.cookies.get(settings.cookie_name))
@@ -771,17 +763,26 @@ def create_app(
             msg = detail or "Cancel failed."
             if kind == "conflict":
                 msg = msg or "Action is no longer cancellable."
+            current, ckind, _ = await fetch_power(session.token, action_id)
             if hx:
+                if ckind == "ok" and current is not None:
+                    return templates.TemplateResponse(
+                        request, "partials/power_status.html",
+                        {"power": current, "error": msg, "action_id": action_id},
+                        status_code=200,
+                    )
                 return templates.TemplateResponse(
                     request, "partials/power_status.html",
-                    {"power": None, "error": msg}, status_code=200,
+                    {"power": None, "error": msg, "action_id": action_id},
+                    status_code=200,
                 )
             ctx = await _control_context(request, session)
             ctx["error"] = msg
             return templates.TemplateResponse(request, "control.html", ctx, status_code=400)
         if hx:
             return templates.TemplateResponse(
-                request, "partials/power_status.html", {"power": data, "error": None}
+                request, "partials/power_status.html",
+                {"power": data, "error": None, "action_id": data.get("id") if isinstance(data, dict) else action_id},
             )
         return RedirectResponse("/control", status_code=303)
 

@@ -126,7 +126,7 @@ def test_upstream_invalid_after_connect_redirects():
     assert r2.headers.get("hx-redirect") == "/connect"
 
 
-def _job(job_id="job-1", status="succeeded", **extra):
+def _job(job_id="11111111-2222-3333-4444-555555555555", status="succeeded", **extra):
     base = {
         "id": job_id,
         "kind": "update_check",
@@ -145,7 +145,7 @@ def _job(job_id="job-1", status="succeeded", **extra):
     return base
 
 
-def _power(action_id="pa-1", status="pending", cancellable=True, action="reboot"):
+def _power(action_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", status="pending", cancellable=True, action="reboot"):
     return {
         "id": action_id,
         "action": action,
@@ -345,7 +345,7 @@ def test_power_create_and_poll():
     r2 = client.post("/control/power-actions", data={"action": "reboot", "delay_seconds": "60", "confirmation": "reboot"}, cookies=cookies, headers={"HX-Request": "true", "origin": "http://testserver"}, follow_redirects=False)
     assert r2.status_code == 200
     assert "reboot" in r2.text.lower()
-    r3 = client.get("/control/power-actions/pa-1", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    r3 = client.get("/control/power-actions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
     assert r3.status_code == 200
     assert "pending" in r3.text
 
@@ -358,7 +358,9 @@ def test_power_cancel():
             return httpx.Response(200, json=_snapshot())
         if request.url.path == "/api/v1/jobs/00000000-0000-0000-0000-000000000000":
             return httpx.Response(404, json={"error": {"code": "not_found"}})
-        if request.url.path == "/api/v1/power-actions/pa-1" and request.method == "DELETE":
+        if request.url.path == "/api/v1/power-actions" and request.method == "POST":
+            return httpx.Response(202, json=_power())
+        if request.url.path == "/api/v1/power-actions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" and request.method == "DELETE":
             calls["n"] += 1
             return httpx.Response(200, json=_power(status="cancelled", cancellable=False))
         if request.url.path.startswith("/api/v1/power-actions/"):
@@ -368,7 +370,8 @@ def test_power_cancel():
     client = _make(handler)
     r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
     cookies = r.cookies
-    r2 = client.post("/control/power-actions/pa-1/cancel", cookies=cookies, headers={"HX-Request": "true", "origin": "http://testserver"}, follow_redirects=False)
+    client.post("/control/power-actions", data={"action": "reboot", "delay_seconds": "60", "confirmation": "reboot"}, cookies=cookies, headers={"HX-Request": "true", "origin": "http://testserver"}, follow_redirects=False)
+    r2 = client.post("/control/power-actions/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/cancel", cookies=cookies, headers={"HX-Request": "true", "origin": "http://testserver"}, follow_redirects=False)
     assert r2.status_code == 200
     assert "cancelled" in r2.text
 
@@ -387,6 +390,6 @@ def test_overview_503_hx_reswap():
     r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
     cookies = r.cookies
     r2 = client.get("/fragments/overview", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
-    assert r2.status_code == 503
+    assert r2.status_code == 200
     assert r2.headers.get("hx-reswap") == "innerHTML"
     assert "unavailable" in r2.text.lower()
