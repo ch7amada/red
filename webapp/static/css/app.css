@@ -18,7 +18,7 @@
   --error-bg: light-dark(#F9DEDC, #4A1F22);
   --radius: 20px;
   --radius-lg: 28px;
-  --shadow: light-dark(0 1px 2px rgba(50, 27, 32, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3));
+  --shadow: 0 1px 2px light-dark(rgba(50, 27, 32, 0.06), rgba(0, 0, 0, 0.3));
 }
 
 :root[data-theme="dark"] { color-scheme: dark; }
@@ -82,6 +82,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
 }
 .nav-item:hover { background: var(--primary-container); color: var(--on-primary-container); }
 .nav-item.active { background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; }
+.theme-toggle:hover { background: var(--primary-container); color: var(--on-primary-container); }
+.theme-toggle[aria-pressed="true"] { background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; }
 button.nav-item { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 
 .rail-footer { margin-top: auto; }
@@ -177,7 +179,7 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
   padding: 10px 12px; border-radius: 12px; margin: 12px 0; font-size: 14px;
 }
 
-.connect-wrap { min-height: 60vh; display: grid; place-items: center; padding: 24px; }
+.connect-wrap { min-height: 60vh; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 24px; }
 .connect-panel {
   width: min(420px, 100%);
   background: var(--card);
@@ -193,6 +195,7 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
 .connect-panel input {
   padding: 10px 12px; border-radius: 12px;
   border: 1px solid var(--card-border); font: inherit; background: var(--surface); color: var(--text);
+  min-width: 0;
 }
 
 .btn {
