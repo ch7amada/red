@@ -11,32 +11,17 @@
       try {
         var t = localStorage.getItem("lm-theme");
         if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+        else document.documentElement.dataset.theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      } catch (e) {
+        document.documentElement.dataset.theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      try {
+        var meta = document.querySelector('meta[name="color-scheme"]');
+        if (meta) meta.setAttribute("content", document.documentElement.dataset.theme === "dark" ? "dark" : "light");
       } catch (e) {}
     })();
-    document.addEventListener("DOMContentLoaded", function () {
-      var root = document.documentElement;
-      var btn = document.querySelector(".theme-toggle");
-      var media = window.matchMedia("(prefers-color-scheme: dark)");
-      function dark() {
-        if (root.dataset.theme === "dark") return true;
-        if (root.dataset.theme === "light") return false;
-        return media.matches;
-      }
-      function sync() {
-        if (btn) btn.setAttribute("aria-pressed", dark() ? "true" : "false");
-      }
-      sync();
-      media.addEventListener("change", sync);
-      if (btn) {
-        btn.addEventListener("click", function () {
-          var next = dark() ? "light" : "dark";
-          root.dataset.theme = next;
-          try { localStorage.setItem("lm-theme", next); } catch (e) {}
-          sync();
-        });
-      }
-    });
   </script>
+  <noscript><style>.theme-toggle { display: none !important; }</style></noscript>
   <link rel="stylesheet" href="/static/css/app.css">
   <script src="/static/vendor/htmx.min.js"
           integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
@@ -56,7 +41,6 @@
       <nav class="rail-nav">
         <a class="nav-item {% if request.url.path == '/' %}active{% endif %}" href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Overview</a>
         <a class="nav-item {% if request.url.path == '/control' %}active{% endif %}" href="/control" {% if request.url.path == '/control' %}aria-current="page"{% endif %}>Control</a>
-        <button type="button" class="nav-item theme-toggle" aria-pressed="false">Dark mode</button>
       </nav>
       <div class="rail-footer">
         {% block rail_footer %}{% endblock %}
@@ -65,6 +49,58 @@
     <main id="main" class="main">
       {% block content %}{% endblock %}
     </main>
+    <button type="button" class="theme-toggle" aria-label="Switch to dark mode" title="Switch to dark mode">
+      <span class="theme-icon theme-icon-moon" aria-hidden="true">☾</span>
+      <span class="theme-icon theme-icon-sun" aria-hidden="true">☀︎</span>
+    </button>
   </div>
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var btn = null;
+      var media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+      var manual = false;
+      try { manual = localStorage.getItem("lm-theme") === "light" || localStorage.getItem("lm-theme") === "dark"; } catch (e) { manual = false; }
+
+      function isDark() { return root.dataset.theme === "dark"; }
+      function syncLabel() {
+        if (!btn) return;
+        var label = isDark() ? "Switch to light mode" : "Switch to dark mode";
+        btn.setAttribute("aria-label", label);
+        btn.setAttribute("title", label);
+      }
+      function syncMeta(theme) {
+        try {
+          var meta = document.querySelector('meta[name="color-scheme"]');
+          if (meta) meta.setAttribute("content", theme === "dark" ? "dark" : "light");
+        } catch (e) {}
+      }
+      function onSystemChange() {
+        if (manual) return;
+        var next = media && media.matches ? "dark" : "light";
+        root.dataset.theme = next;
+        syncMeta(next);
+        syncLabel();
+      }
+      document.addEventListener("DOMContentLoaded", function () {
+        btn = document.querySelector(".theme-toggle");
+        syncLabel();
+        if (media) {
+          if (media.addEventListener) media.addEventListener("change", onSystemChange);
+          else if (media.addListener) media.addListener(onSystemChange);
+        }
+        if (btn) {
+          btn.addEventListener("click", function () {
+            manual = true;
+            var next = isDark() ? "light" : "dark";
+            root.dataset.theme = next;
+            try { localStorage.setItem("lm-theme", next); } catch (e) {}
+            syncMeta(next);
+            syncLabel();
+          });
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
