@@ -1,5 +1,5 @@
 {% if power %}
-<div class="status-block" id="power-status"
+<div class="status-block" id="power-status-{{ power.id }}"
      {% if power.status not in ('cancelled', 'failed', 'unknown', 'completed') %}hx-get="/control/power-actions/{{ power.id }}" hx-trigger="every 2s" hx-swap="outerHTML" hx-sync="#power-status:drop"{% endif %}>
   <p><strong>Action:</strong> {{ power.action }}</p>
   <p><strong>Status:</strong> <span aria-live="polite">{{ power.status }}</span></p>
@@ -16,7 +16,7 @@
   <form method="post" action="/control/power-actions/{{ power.id }}/cancel" class="inline-form">
     <button id="cancel-power-action" type="submit" class="btn btn-ghost"
             hx-post="/control/power-actions/{{ power.id }}/cancel"
-            hx-target="#power-status"
+            hx-target="#power-status-{{ power.id }}"
             hx-swap="outerHTML"
             hx-sync="#power-status:replace"
             hx-indicator="#cancel-indicator-{{ power.id }}"
