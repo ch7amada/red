@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Linux Monitor{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/vendor/htmx.min.js"
+          integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
+          crossorigin="anonymous" defer></script>
+</head>
+<body hx-history="false">
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="shell">
+    <aside class="rail" aria-label="Primary navigation">
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <strong class="wordmark">RED</strong>
+          <span class="product">Linux Monitor</span>
+        </div>
+      </div>
+      <nav class="rail-nav">
+        <a class="nav-item active" href="/" aria-current="page">Overview</a>
+      </nav>
+      <div class="rail-footer">
+        {% block rail_footer %}{% endblock %}
+      </div>
+    </aside>
+    <main id="main" class="main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

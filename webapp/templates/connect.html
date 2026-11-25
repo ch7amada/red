@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Connect - Linux Monitor{% endblock %}
+{% block content %}
+<section class="connect-wrap">
+  <div class="connect-panel">
+    <span class="mark mark-large" aria-hidden="true"></span>
+    <h1>Connect to Linux Monitor</h1>
+    <p class="muted">Enter a bearer token to view this machine's monitoring snapshot.</p>
+    {% if error %}
+    <div class="alert" role="alert">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/connect">
+      <label for="token">Bearer token</label>
+      <input id="token" name="token" type="password" autocomplete="current-password" required autofocus>
+      <button type="submit" class="btn btn-primary">Connect</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

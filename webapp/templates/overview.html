@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Overview - Linux Monitor{% endblock %}
+{% block rail_footer %}{% include "partials/connection_panel.html" %}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Overview</h1>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary"
+            hx-get="/fragments/overview"
+            hx-target="#overview-content"
+            hx-swap="innerHTML"
+            hx-indicator="#refresh-indicator">Refresh</button>
+    <span id="refresh-indicator" class="htmx-indicator" aria-live="polite">Refreshing…</span>
+  </div>
+</header>
+<section id="overview-content" class="dashboard"
+         hx-get="/fragments/overview"
+         hx-trigger="load, every 5s"
+         hx-swap="innerHTML">
+  <p class="muted">Loading snapshot…</p>
+</section>
+{% endblock %}

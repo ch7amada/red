@@ -1,0 +1,171 @@
+{% if error %}
+<article class="card span-3 error-card" role="alert">
+  <h2>Snapshot unavailable</h2>
+  <p>{{ error }}</p>
+</article>
+{% else %}
+{% set s = snapshot %}
+<article class="card span-3 hero">
+  <div class="hero-top">
+    <span class="live-pill"><span class="live-dot"></span> Live</span>
+    <span class="snapshot-time">Snapshot {{ s.collected_at | dt }}</span>
+  </div>
+  <h2 class="hostname">{{ s.hostname }}</h2>
+  <p class="os-line">
+    {{ s.os.name }}{% if s.os.version %} {{ s.os.version }}{% endif %}
+    &middot; kernel {{ s.os.kernel }} &middot; {{ s.os.architecture }}
+  </p>
+  <div class="hero-metrics">
+    <div>
+      <span class="metric-label">Uptime</span>
+      <span class="metric-value">{{ s.uptime_seconds | uptime }}</span>
+    </div>
+  </div>
+  {% if s.uptime_status.status != "ok" %}
+  <p class="error-text">{{ s.uptime_status.error or "Uptime unavailable" }}</p>
+  {% endif %}
+</article>
+
+<article class="card span-2">
+  <h3>CPU</h3>
+  {% if s.cpu.status != "ok" %}
+    <p class="error-text">{{ s.cpu.error or "CPU collection failed" }}</p>
+  {% else %}
+    <div class="metric-big">{{ s.cpu.utilization_pct | pct }}</div>
+    <div class="bar" role="progressbar"
+         aria-valuenow="{{ s.cpu.utilization_pct if s.cpu.utilization_pct is not none else 0 }}"
+         aria-valuemin="0" aria-valuemax="100" aria-label="CPU utilization">
+      <span style="width: {{ [s.cpu.utilization_pct if s.cpu.utilization_pct is not none else 0, 100] | min }}%"></span>
+    </div>
+    <div class="load-row">
+      <div><span>{{ s.cpu.load_1m if s.cpu.load_1m is not none else "—" }}</span><small>1m load</small></div>
+      <div><span>{{ s.cpu.load_5m if s.cpu.load_5m is not none else "—" }}</span><small>5m load</small></div>
+      <div><span>{{ s.cpu.load_15m if s.cpu.load_15m is not none else "—" }}</span><small>15m load</small></div>
+    </div>
+  {% endif %}
+</article>
+
+<article class="card">
+  <h3>Memory</h3>
+  {% if s.memory.status != "ok" %}
+    <p class="error-text">{{ s.memory.error or "Memory collection failed" }}</p>
+  {% else %}
+    <div class="metric-big">{{ s.memory.used_percent | pct }}</div>
+    <div class="bar" role="progressbar"
+         aria-valuenow="{{ s.memory.used_percent if s.memory.used_percent is not none else 0 }}"
+         aria-valuemin="0" aria-valuemax="100" aria-label="Memory utilization">
+      <span style="width: {{ [s.memory.used_percent if s.memory.used_percent is not none else 0, 100] | min }}%"></span>
+    </div>
+    <p class="metric-line">{{ s.memory.used_bytes | bytes }} of {{ s.memory.total_bytes | bytes }}</p>
+    <p class="muted">Available {{ s.memory.available_bytes | bytes }}</p>
+  {% endif %}
+</article>
+
+<article class="card">
+  <h3>Swap</h3>
+  {% if s.swap.status != "ok" %}
+    <p class="error-text">{{ s.swap.error or "Swap collection failed" }}</p>
+  {% elif not s.swap.total_bytes %}
+    <p class="muted">No swap configured</p>
+  {% else %}
+    <div class="metric-big">{{ s.swap.used_percent | pct }}</div>
+    <div class="bar" role="progressbar"
+         aria-valuenow="{{ s.swap.used_percent if s.swap.used_percent is not none else 0 }}"
+         aria-valuemin="0" aria-valuemax="100" aria-label="Swap utilization">
+      <span style="width: {{ [s.swap.used_percent if s.swap.used_percent is not none else 0, 100] | min }}%"></span>
+    </div>
+    <p class="metric-line">{{ s.swap.used_bytes | bytes }} of {{ s.swap.total_bytes | bytes }}</p>
+    <p class="muted">Free {{ s.swap.free_bytes | bytes }}</p>
+  {% endif %}
+</article>
+
+<article class="card span-2">
+  <h3>Storage</h3>
+  {% if s.filesystems_status.status != "ok" %}
+    <p class="error-text">{{ s.filesystems_status.error or "Filesystem collection failed" }}</p>
+  {% elif not s.filesystems %}
+    <p class="muted">No filesystems reported</p>
+  {% else %}
+    <ul class="fs-list">
+      {% for fs in s.filesystems %}
+      <li>
+        <div class="fs-head">
+          <strong>{{ fs.mountpoint }}</strong>
+          <span class="muted">{% if fs.device %}{{ fs.device }}{% endif %}{% if fs.fstype %} &middot; {{ fs.fstype }}{% endif %}</span>
+        </div>
+        <div class="bar" role="progressbar"
+             aria-valuenow="{{ fs.used_percent if fs.used_percent is not none else 0 }}"
+             aria-valuemin="0" aria-valuemax="100" aria-label="Storage utilization for {{ fs.mountpoint }}">
+          <span style="width: {{ [fs.used_percent if fs.used_percent is not none else 0, 100] | min }}%"></span>
+        </div>
+        <p class="metric-line">{{ fs.used_bytes | bytes }} of {{ fs.total_bytes | bytes }} &middot; {{ fs.available_bytes | bytes }} available</p>
+      </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</article>
+
+<article class="card">
+  <h3>Network</h3>
+  {% if s.network_status.status != "ok" %}
+    <p class="error-text">{{ s.network_status.error or "Network collection failed" }}</p>
+  {% elif not s.network %}
+    <p class="muted">No network interfaces</p>
+  {% else %}
+    <ul class="net-list">
+      {% for iface in s.network %}
+      <li>
+        <strong>{{ iface.name }}</strong>
+        <dl>
+          <div><dt>RX</dt><dd>{{ iface.rx_bytes | bytes }}</dd></div>
+          <div><dt>TX</dt><dd>{{ iface.tx_bytes | bytes }}</dd></div>
+          <div><dt>Packets</dt><dd>{{ iface.rx_packets if iface.rx_packets is not none else "—" }} / {{ iface.tx_packets if iface.tx_packets is not none else "—" }}</dd></div>
+          <div><dt>Errors</dt><dd>{{ iface.rx_errors if iface.rx_errors is not none else 0 }} / {{ iface.tx_errors if iface.tx_errors is not none else 0 }}</dd></div>
+          <div><dt>Dropped</dt><dd>{{ iface.rx_dropped if iface.rx_dropped is not none else 0 }} / {{ iface.tx_dropped if iface.tx_dropped is not none else 0 }}</dd></div>
+        </dl>
+      </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</article>
+
+<article class="card span-2">
+  <h3>GPU</h3>
+  {% if s.gpu_status.status != "ok" %}
+    <p class="error-text">{{ s.gpu_status.error or "GPU collection failed" }}</p>
+  {% elif not s.gpus %}
+    <p class="muted">No GPU detected</p>
+  {% else %}
+    <div class="gpu-list">
+      {% for gpu in s.gpus %}
+      <section class="gpu-item">
+        <div class="gpu-head">
+          <strong>{{ gpu.name }}</strong>
+          <span class="muted">{{ gpu.vendor }}</span>
+        </div>
+        {% if gpu.status != "ok" %}
+          <p class="error-text">{{ gpu.error or "GPU collection failed" }}</p>
+        {% else %}
+          <div class="gpu-metrics">
+            <div>
+              <span class="metric-label">Utilization</span>
+              <span class="metric-value-small">{{ gpu.utilization_pct | pct }}</span>
+            </div>
+            <div>
+              <span class="metric-label">Temperature</span>
+              <span class="metric-value-small">{% if gpu.temperature_celsius is not none %}{{ gpu.temperature_celsius }}&deg;C{% else %}—{% endif %}</span>
+            </div>
+          </div>
+          <div class="bar" role="progressbar"
+               aria-valuenow="{{ gpu.vram_used_percent if gpu.vram_used_percent is not none else 0 }}"
+               aria-valuemin="0" aria-valuemax="100" aria-label="VRAM utilization for {{ gpu.name }}">
+            <span style="width: {{ [gpu.vram_used_percent if gpu.vram_used_percent is not none else 0, 100] | min }}%"></span>
+          </div>
+          <p class="metric-line">{{ gpu.vram_used_bytes | bytes }} of {{ gpu.vram_total_bytes | bytes }} VRAM</p>
+        {% endif %}
+      </section>
+      {% endfor %}
+    </div>
+  {% endif %}
+</article>
+{% endif %}
