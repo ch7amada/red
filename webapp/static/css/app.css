@@ -1,46 +1,28 @@
 :root {
-  --bg: #FFF6F3;
-  --surface: #FFF6F3;
-  --card: #FFFFFF;
-  --card-border: rgba(117, 74, 80, 0.14);
-  --text: #321B20;
-  --muted: #754A50;
-  --primary: #AD1C33;
-  --on-primary: #FFF6F5;
-  --primary-container: #FFDAD8;
-  --on-primary-container: #40121B;
-  --secondary-container: #C2E8CE;
-  --on-secondary-container: #1B3D28;
-  --live: #1B3D28;
-  --live-bg: #C2E8CE;
-  --error: #B3261E;
-  --error-bg: #F9DEDC;
+  color-scheme: light dark;
+  --bg: light-dark(#FFF6F3, #211315);
+  --surface: light-dark(#FFF6F3, #211315);
+  --card: light-dark(#FFFFFF, #2A1A1D);
+  --card-border: light-dark(rgba(117, 74, 80, 0.14), rgba(221, 185, 188, 0.16));
+  --text: light-dark(#321B20, #F9E8E7);
+  --muted: light-dark(#754A50, #DDB9BC);
+  --primary: light-dark(#AD1C33, #9C243B);
+  --on-primary: light-dark(#FFF6F5, #FFF0EF);
+  --primary-container: light-dark(#FFDAD8, #5E1725);
+  --on-primary-container: light-dark(#40121B, #FFDAD8);
+  --secondary-container: light-dark(#C2E8CE, #274937);
+  --on-secondary-container: light-dark(#1B3D28, #D7F6E1);
+  --live: light-dark(#1B3D28, #D7F6E1);
+  --live-bg: light-dark(#C2E8CE, #274937);
+  --error: light-dark(#B3261E, #F2B8B5);
+  --error-bg: light-dark(#F9DEDC, #4A1F22);
   --radius: 20px;
   --radius-lg: 28px;
-  --shadow: 0 1px 2px rgba(50, 27, 32, 0.06);
+  --shadow: light-dark(0 1px 2px rgba(50, 27, 32, 0.06), 0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #211315;
-    --surface: #211315;
-    --card: #2A1A1D;
-    --card-border: rgba(221, 185, 188, 0.16);
-    --text: #F9E8E7;
-    --muted: #DDB9BC;
-    --primary: #9C243B;
-    --on-primary: #FFF0EF;
-    --primary-container: #5E1725;
-    --on-primary-container: #FFDAD8;
-    --secondary-container: #274937;
-    --on-secondary-container: #D7F6E1;
-    --live: #D7F6E1;
-    --live-bg: #274937;
-    --error: #F2B8B5;
-    --error-bg: #4A1F22;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  }
-}
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -100,6 +82,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
 }
 .nav-item:hover { background: var(--primary-container); color: var(--on-primary-container); }
 .nav-item.active { background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; }
+button.nav-item { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; }
 
 .rail-footer { margin-top: auto; }
 

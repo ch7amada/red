@@ -6,6 +6,33 @@
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}Linux Monitor{% endblock %}</title>
   <link rel="icon" href="data:,">
+  <script>
+    (function () {
+      var keys = ["theme", "darkMode", "color-theme", "dark-mode", "lm-theme"];
+      function normalize(value) {
+        if (value === "dark" || value === "true" || value === "1") return "dark";
+        if (value === "light" || value === "false" || value === "0") return "light";
+        return null;
+      }
+      function storedTheme() {
+        for (var i = 0; i < keys.length; i++) {
+          try {
+            var value = window.localStorage.getItem(keys[i]);
+            var theme = normalize(value);
+            if (theme) return theme;
+          } catch (e) {}
+        }
+        return null;
+      }
+      var theme = storedTheme();
+      if (!theme) {
+        theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+      var meta = document.querySelector('meta[name="color-scheme"]');
+      if (meta) meta.setAttribute("content", theme);
+    })();
+  </script>
   <link rel="stylesheet" href="/static/css/app.css">
   <script src="/static/vendor/htmx.min.js"
           integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
@@ -25,6 +52,7 @@
       <nav class="rail-nav">
         <a class="nav-item {% if request.url.path == '/' %}active{% endif %}" href="/" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Overview</a>
         <a class="nav-item {% if request.url.path == '/control' %}active{% endif %}" href="/control" {% if request.url.path == '/control' %}aria-current="page"{% endif %}>Control</a>
+        <button type="button" class="nav-item theme-toggle" aria-pressed="false">Dark mode</button>
       </nav>
       <div class="rail-footer">
         {% block rail_footer %}{% endblock %}
@@ -34,5 +62,58 @@
       {% block content %}{% endblock %}
     </main>
   </div>
+  <script>
+    (function () {
+      var keys = ["theme", "darkMode", "color-theme", "dark-mode", "lm-theme"];
+      var root = document.documentElement;
+      function normalize(value) {
+        if (value === "dark" || value === "true" || value === "1") return "dark";
+        if (value === "light" || value === "false" || value === "0") return "light";
+        return null;
+      }
+      function readStored() {
+        for (var i = 0; i < keys.length; i++) {
+          try {
+            var value = window.localStorage.getItem(keys[i]);
+            var theme = normalize(value);
+            if (theme) return theme;
+          } catch (e) {}
+        }
+        return null;
+      }
+      function systemDark() {
+        return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      }
+      function isDark() {
+        var theme = root.getAttribute("data-theme");
+        if (theme === "dark") return true;
+        if (theme === "light") return false;
+        return systemDark();
+      }
+      function sync() {
+        var btn = document.querySelector(".theme-toggle");
+        if (btn) btn.setAttribute("aria-pressed", isDark() ? "true" : "false");
+      }
+      function persist(theme) {
+        for (var i = 0; i < keys.length; i++) {
+          try { window.localStorage.setItem(keys[i], theme); } catch (e) {}
+        }
+      }
+      function apply(theme) {
+        root.setAttribute("data-theme", theme);
+        persist(theme);
+        var meta = document.querySelector('meta[name="color-scheme"]');
+        if (meta) meta.setAttribute("content", theme);
+        sync();
+      }
+      sync();
+      var btn = document.querySelector(".theme-toggle");
+      if (btn) {
+        btn.addEventListener("click", function () {
+          apply(isDark() ? "light" : "dark");
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
