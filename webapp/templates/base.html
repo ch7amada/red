@@ -49,10 +49,7 @@
     <main id="main" class="main">
       {% block content %}{% endblock %}
     </main>
-    <button type="button" class="theme-toggle" aria-label="Switch to dark mode" title="Switch to dark mode">
-      <span class="theme-icon theme-icon-moon" aria-hidden="true"></span>
-      <span class="theme-icon theme-icon-sun" aria-hidden="true"></span>
-    </button>
+    <button type="button" class="theme-toggle" role="switch" aria-label="Dark mode" aria-checked="false" title="Dark mode"></button>
   </div>
   <script>
     (function () {
@@ -63,11 +60,9 @@
       try { manual = localStorage.getItem("lm-theme") === "light" || localStorage.getItem("lm-theme") === "dark"; } catch (e) { manual = false; }
 
       function isDark() { return root.dataset.theme === "dark"; }
-      function syncLabel() {
+      function syncSwitch() {
         if (!btn) return;
-        var label = isDark() ? "Switch to light mode" : "Switch to dark mode";
-        btn.setAttribute("aria-label", label);
-        btn.setAttribute("title", label);
+        btn.setAttribute("aria-checked", String(isDark()));
       }
       function syncMeta(theme) {
         try {
@@ -80,11 +75,11 @@
         var next = media && media.matches ? "dark" : "light";
         root.dataset.theme = next;
         syncMeta(next);
-        syncLabel();
+        syncSwitch();
       }
       document.addEventListener("DOMContentLoaded", function () {
         btn = document.querySelector(".theme-toggle");
-        syncLabel();
+        syncSwitch();
         if (media) {
           if (media.addEventListener) media.addEventListener("change", onSystemChange);
           else if (media.addListener) media.addListener(onSystemChange);
@@ -96,7 +91,7 @@
             root.dataset.theme = next;
             try { localStorage.setItem("lm-theme", next); } catch (e) {}
             syncMeta(next);
-            syncLabel();
+            syncSwitch();
           });
         }
       });
