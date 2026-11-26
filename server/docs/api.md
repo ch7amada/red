@@ -35,6 +35,20 @@ Status mapping: invalid input `422`, not found `404`, conflict `409`, timeout `5
 execution failure `503`, interrupted/internal `500`.
 Responses include an `X-Request-ID` header.
 
+## llama.cpp monitoring
+
+The system snapshot always includes a `llama_cpp` object. The default upstream URL
+is `http://127.0.0.1:8081`. Override it with `LLAMA_CPP_URL` (HTTP or HTTPS base
+URL). `LLAMA_CPP_API_KEY` is an optional bearer token and is required only when
+the upstream llama.cpp server is protected. The key is sent only to the
+configured upstream host. Redirects and ambient proxies are not followed.
+
+The server polls the configured instance's `/health`, `/models`, and `/props`
+endpoints. Failures degrade safely and never affect other collectors. Each model
+entry reports `id`, `status`, `context_tokens` (context per slot, when loaded),
+`training_context_tokens` (training context), and `total_slots` (slot count). The
+top-level `llama_cpp.status` is always present.
+
 ## Endpoints
 
 ### `GET /health/live`
@@ -52,7 +66,8 @@ Response `200`:
 Reader or admin. Returns the monitoring snapshot.
 
 Response `200`: `SystemInfo` object with `schema_version`, `collected_at`, `hostname`,
-`os`, `uptime_seconds`, `cpu`, `memory`, `swap`, `filesystems`, `network`, `gpus`, and Docker containers (`docker_containers` with `docker_status`).
+`os`, `uptime_seconds`, `uptime_status`, `llama_cpp`, `cpu`, `memory`, `swap`,
+`filesystems`, `network`, `gpus`, and Docker containers (`docker_containers` with `docker_status`).
 
 ### `POST /api/v1/updates/check`
 
@@ -131,10 +146,10 @@ callback interface.
 ## Docker monitoring
 
 - `GET /api/v1/system` includes running containers only (`docker ps` semantics).
-- Container rows: `id`, `name`, `image`, `status`.
+- Container rows include `id`, `name`, `image`, and `status`.
 - Docker availability is reported via `docker_status` (`ok` when Docker ran, even with zero containers).
-- Failures (missing binary/daemon/permission/timeout) degrade to an empty list with `status: error` and a generic error; other collectors are unaffected.
-- The privileged helper runs fixed `docker ps` semantics against `/var/run/docker.sock`; exact argv is in deployment docs.
+- Failures (missing binary/daemon/permission/timeout) degrade to an empty list with `status: error` and a generic error. Other collectors are unaffected.
+- The privileged helper runs fixed `docker ps` semantics against `/var/run/docker.sock`.
 
 ## Output limits
 

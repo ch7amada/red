@@ -454,3 +454,62 @@ def test_overview_503_hx_reswap():
     assert r2.status_code == 200
     assert r2.headers.get("hx-reswap") == "innerHTML"
     assert "unavailable" in r2.text.lower()
+
+
+def _llama_snapshot() -> dict:
+    snap = _snapshot()
+    snap["llama_cpp"] = {
+        "status": "running",
+        "error": None,
+        "models": [
+            {
+                "id": "loaded-model",
+                "status": "loaded",
+                "context_tokens": 4096,
+                "training_context_tokens": 262144,
+                "total_slots": 2,
+                "context_error": None,
+            },
+            {
+                "id": "<unloaded-model>",
+                "status": "unloaded",
+                "context_tokens": None,
+                "training_context_tokens": 131072,
+                "total_slots": None,
+                "context_error": None,
+            },
+        ],
+    }
+    return snap
+
+
+def test_overview_llama_cpp_rendered(monkeypatch):
+    async def handler(request):
+        return httpx.Response(200, json=_llama_snapshot())
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    cookies = r.cookies
+    r2 = client.get("/fragments/overview", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    assert r2.status_code == 200
+    assert "llama.cpp" in r2.text
+    assert "loaded-model" in r2.text
+    assert "loaded" in r2.text
+    assert "unloaded" in r2.text
+    assert "4096" in r2.text
+    assert "262144" in r2.text
+    assert "2" in r2.text
+    # escaped id
+    assert "&lt;unloaded-model&gt;" in r2.text
+
+
+def test_overview_llama_cpp_absent():
+    async def handler(request):
+        return httpx.Response(200, json=_snapshot())
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    cookies = r.cookies
+    r2 = client.get("/fragments/overview", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    assert r2.status_code == 200
+    assert "llama.cpp" not in r2.text

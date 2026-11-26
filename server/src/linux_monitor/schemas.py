@@ -8,6 +8,19 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
+class LlamaCppModel(BaseModel):
+    id: str
+    status: str
+    context_tokens: Optional[int] = None
+    training_context_tokens: Optional[int] = None
+    total_slots: Optional[int] = None
+
+class LlamaCppInfo(BaseModel):
+    status: Literal["running", "loading", "unavailable"]
+    error: Optional[str] = None
+    models: list[LlamaCppModel] = Field(default_factory=list)
+
+
 class OsInfo(BaseModel):
     name: str
     version: Optional[str] = None
@@ -91,6 +104,7 @@ class DockerContainerInfo(BaseModel):
 
 class SystemInfo(BaseModel):
     schema_version: str = "1.0"
+    llama_cpp: Optional[LlamaCppInfo] = None
     collected_at: datetime
     hostname: str
     os: OsInfo

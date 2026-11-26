@@ -8,6 +8,7 @@ from ..config import Settings
 from ..schemas import (
     ComponentStatus,
     CpuInfo,
+    LlamaCppInfo,
     MemoryInfo,
     OsInfo,
     SwapInfo,
@@ -17,6 +18,7 @@ from .base import collect_hostname, collect_os, collect_uptime
 from .cpu import collect_cpu
 from .docker import collect_docker
 from .gpu import collect_gpus
+from .llama_cpp import collect_llama_cpp
 from .memory import collect_memory, collect_swap
 from .network import collect_network
 from .storage import collect_filesystems
@@ -37,6 +39,11 @@ def collect_system(settings: Settings) -> SystemInfo:
     except Exception:
         uptime = None
         uptime_status = ComponentStatus(status="error", error="collection failed")
+
+    try:
+        llama_cpp = collect_llama_cpp(settings)
+    except Exception:
+        llama_cpp = LlamaCppInfo(status="unavailable", error="collection failed")
 
     cpu = collect_cpu(settings)
     memory = collect_memory()
@@ -76,6 +83,7 @@ def collect_system(settings: Settings) -> SystemInfo:
         os=os_info,
         uptime_seconds=uptime,
         uptime_status=uptime_status,
+        llama_cpp=llama_cpp,
         cpu=cpu,
         memory=memory,
         swap=swap,

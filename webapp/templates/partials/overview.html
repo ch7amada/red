@@ -26,6 +26,33 @@
   {% endif %}
 </article>
 
+{% if s.llama_cpp %}
+<article class="card span-3">
+  <h3>llama.cpp</h3>
+  <p class="metric-line">Status: {{ s.llama_cpp.status }}</p>
+  {% if s.llama_cpp.error %}
+  <p class="error-text">{{ s.llama_cpp.error }}</p>
+  {% endif %}
+  {% if s.llama_cpp.models %}
+  <div class="gpu-list">
+    {% for model in s.llama_cpp.models %}
+    <section class="gpu-item">
+      <div class="gpu-head">
+        <strong style="overflow-wrap:anywhere; word-break:break-word;">{{ model.id }}</strong>
+        <span class="muted">{{ model.status }}</span>
+      </div>
+      {% if model.context_tokens is not none %}<span class="metric-line">Context per slot: {{ model.context_tokens }} tokens</span>{% endif %}
+      {% if model.training_context_tokens is not none %}<span class="metric-line">Training context: {{ model.training_context_tokens }} tokens</span>{% endif %}
+      {% if model.total_slots is not none %}<span class="metric-line">Slots: {{ model.total_slots }}</span>{% endif %}
+    </section>
+    {% endfor %}
+  </div>
+  {% elif not s.llama_cpp.error %}
+  <p class="muted">No models reported</p>
+  {% endif %}
+</article>
+{% endif %}
+
 <article class="card span-2">
   <h3>CPU</h3>
   {% if s.cpu.status != "ok" %}

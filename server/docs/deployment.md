@@ -43,6 +43,13 @@ DOCS_ENABLED=false
 Generate tokens with `openssl rand -hex 32`. Rotate by editing this file and running
 `systemctl restart linux-monitor`.
 
+Optional llama.cpp monitoring uses `LLAMA_CPP_URL`, which defaults to
+`http://127.0.0.1:8081`. Set it to an HTTP(S) base URL to point at another
+host. `LLAMA_CPP_API_KEY` is an optional bearer token required only when the
+upstream llama.cpp server is protected. It is never forwarded across redirects.
+Failures degrade safely and do not affect other collectors. The snapshot always
+includes a `llama_cpp` status.
+
 ## Repeatable installation
 
 Use `scripts/install.sh` from a checkout of this repository. It is idempotent and does
@@ -114,7 +121,7 @@ The helper accepts only `apt-check`, `apt-apply`, `power-schedule`, `power-cance
 and validates all arguments internally. Any sudo or helper failure is noninteractive
 because the service uses `sudo -n`.
 
-New installs and updates refresh the fixed helper. Docker monitoring requires the normal rootful Docker socket and binary; availability is reported as `docker_status`.
+New installs and updates refresh the fixed helper. Docker monitoring requires the normal rootful Docker socket and binary. Availability is reported as `docker_status`.
 
 ## Privileged helper
 
@@ -125,7 +132,7 @@ It runs only:
 - `apt-apply`: install available upgrades without removals
 - `power-schedule <reboot|shutdown> <delay>`: create a transient systemd timer
 - `power-cancel`: stop the transient power timer
-- `docker-ps`: list running Docker containers (fixed `/usr/bin/docker --config /etc/docker --host unix:///var/run/docker.sock ps`)
+- `docker-ps` lists running Docker containers (fixed `/usr/bin/docker --config /etc/docker --host unix:///var/run/docker.sock ps`)
 
 ## SQLite and retention
 
