@@ -11,7 +11,7 @@ from linux_monitor.schemas import ComponentStatus, CpuInfo, MemoryInfo, OsInfo, 
 from datetime import datetime, timezone
 
 
-def _fake_system(settings):
+def _fake_system(settings, include_llama_context=False):
     return SystemInfo(
         collected_at=datetime.now(timezone.utc),
         hostname="test-host",

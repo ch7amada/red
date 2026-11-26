@@ -49,6 +49,14 @@ entry reports `id`, `status`, `context_tokens` (context per slot, when loaded),
 `training_context_tokens` (training context), and `total_slots` (slot count). The
 top-level `llama_cpp.status` is always present.
 
+Per-model `slots` are sampled only on an explicit opt-in request
+(`GET /api/v1/system?include_llama_context=true`), because calling upstream
+`/slots` resets llama.cpp idle time. Each slot reports `id`, `context_tokens`,
+`used_tokens`, `remaining_tokens`, and `is_processing`. `slots` is `null` when
+not sampled or unavailable, and `[]` when the upstream reported no slots. The
+upstream `/slots` endpoint may be unavailable when llama.cpp is started with
+`--no-slots`. In that case sampling is skipped and `slots` remains `null`.
+
 ## Endpoints
 
 ### `GET /health/live`
@@ -63,7 +71,9 @@ Response `200`:
 
 ### `GET /api/v1/system`
 
-Reader or admin. Returns the monitoring snapshot.
+Reader or admin. Returns the monitoring snapshot. Optional query parameter
+`include_llama_context` (boolean, default `false`) enables one-shot llama.cpp
+context slot sampling.
 
 Response `200`: `SystemInfo` object with `schema_version`, `collected_at`, `hostname`,
 `os`, `uptime_seconds`, `uptime_status`, `llama_cpp`, `cpu`, `memory`, `swap`,

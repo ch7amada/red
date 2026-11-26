@@ -24,7 +24,7 @@ from .network import collect_network
 from .storage import collect_filesystems
 
 
-def collect_system(settings: Settings) -> SystemInfo:
+def collect_system(settings: Settings, include_llama_context: bool = False) -> SystemInfo:
     try:
         hostname = collect_hostname()
     except Exception:
@@ -41,7 +41,7 @@ def collect_system(settings: Settings) -> SystemInfo:
         uptime_status = ComponentStatus(status="error", error="collection failed")
 
     try:
-        llama_cpp = collect_llama_cpp(settings)
+        llama_cpp = collect_llama_cpp(settings, include_llama_context=include_llama_context)
     except Exception:
         llama_cpp = LlamaCppInfo(status="unavailable", error="collection failed")
 

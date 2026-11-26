@@ -48,7 +48,9 @@ Optional llama.cpp monitoring uses `LLAMA_CPP_URL`, which defaults to
 host. `LLAMA_CPP_API_KEY` is an optional bearer token required only when the
 upstream llama.cpp server is protected. It is never forwarded across redirects.
 Failures degrade safely and do not affect other collectors. The snapshot always
-includes a `llama_cpp` status.
+includes a `llama_cpp` status. Context slot sampling is opt-in via
+`?include_llama_context=true` (one-shot, resets upstream idle time) and may be
+unavailable when the upstream is started with `--no-slots`.
 
 ## Repeatable installation
 

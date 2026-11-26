@@ -10,7 +10,7 @@ import urllib.request
 from typing import Any, Optional
 
 from ..config import Settings
-from ..schemas import LlamaCppInfo, LlamaCppModel
+from ..schemas import LlamaCppInfo, LlamaCppModel, LlamaCppSlot
 
 _TOTAL_BUDGET_SECONDS = 2.5
 _PER_REQUEST_CAP_SECONDS = 1.0
@@ -43,6 +43,14 @@ def _positive_int(value: Any) -> Optional[int]:
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     if value > 0:
+        return value
+    return None
+
+
+def _nonnegative_int(value: Any) -> Optional[int]:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    if value >= 0:
         return value
     return None
 
@@ -102,7 +110,50 @@ def _get_json(
             return status, _parse_json(raw)
 
 
-def collect_llama_cpp(settings: Settings) -> LlamaCppInfo:
+def _collect_slots(
+    url: str, headers: Optional[dict[str, str]], deadline: float
+) -> Optional[list[LlamaCppSlot]]:
+    try:
+        status, body = _get_json(url, headers, deadline)
+    except Exception:
+        return None
+    if status != 200 or not isinstance(body, list):
+        return None
+    if not body:
+        return []
+    parsed: list[LlamaCppSlot] = []
+    for raw in body:
+        if not isinstance(raw, dict):
+            continue
+        slot_id = _nonnegative_int(raw.get("id"))
+        slot_n_ctx = _positive_int(raw.get("n_ctx"))
+        if slot_id is None or slot_n_ctx is None:
+            continue
+        used = _nonnegative_int(raw.get("n_prompt_tokens"))
+        if used is None:
+            used = _nonnegative_int(raw.get("n_past"))
+        if used is None:
+            remaining = None
+        else:
+            remaining = max(0, slot_n_ctx - used)
+        is_processing = raw.get("is_processing")
+        if not isinstance(is_processing, bool):
+            is_processing = None
+        parsed.append(
+            LlamaCppSlot(
+                id=slot_id,
+                context_tokens=slot_n_ctx,
+                used_tokens=used,
+                remaining_tokens=remaining,
+                is_processing=is_processing,
+            )
+        )
+    if not parsed:
+        return None
+    return parsed
+
+
+def collect_llama_cpp(settings: Settings, include_llama_context: bool = False) -> LlamaCppInfo:
     deadline = time.monotonic() + _TOTAL_BUDGET_SECONDS
     base = settings.llama_cpp_url.rstrip("/")
     api_key = settings.llama_cpp_api_key.get_secret_value() if settings.llama_cpp_api_key else None
@@ -194,13 +245,15 @@ def collect_llama_cpp(settings: Settings) -> LlamaCppInfo:
 
         total_slots: Optional[int] = None
 
-        if model_status == "loaded":
-            if has_status_field:
-                query = urllib.parse.urlencode({"model": model_id, "autoload": "false"})
-                props_url = base + "/props?" + query
-            else:
-                props_url = base + "/props"
+        if has_status_field:
+            query_suffix = "?" + urllib.parse.urlencode({"model": model_id, "autoload": "false"})
+        else:
+            query_suffix = ""
 
+        slots_list: Optional[list[LlamaCppSlot]] = None
+
+        if model_status == "loaded":
+            props_url = base + "/props" + query_suffix
             try:
                 props_status, props_body = _get_json(props_url, headers, deadline)
             except Exception:
@@ -219,12 +272,16 @@ def collect_llama_cpp(settings: Settings) -> LlamaCppInfo:
                 if slots is not None:
                     total_slots = slots
 
+                if include_llama_context and model_status == "loaded":
+                    slots_list = _collect_slots(base + "/slots" + query_suffix, headers, deadline)
+
         model = LlamaCppModel(
             id=model_id,
             status=model_status,
             context_tokens=runtime_context,
             training_context_tokens=training_context,
             total_slots=total_slots,
+            slots=slots_list,
         )
         parsed_models.append(model)
 

@@ -223,8 +223,8 @@ def create_app(
         return {"status": "ok"}
 
     @app.get("/api/v1/system", response_model=SystemInfo)
-    async def system(_identity: str = Depends(authenticate)) -> SystemInfo:
-        return await run_in_threadpool(collect_system, settings)
+    async def system(_identity: str = Depends(authenticate), include_llama_context: bool = False) -> SystemInfo:
+        return await run_in_threadpool(collect_system, settings, include_llama_context)
 
     # Register operation routes.
     from .operation_routes import register_operation_routes

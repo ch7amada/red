@@ -8,12 +8,22 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
+class LlamaCppSlot(BaseModel):
+    id: int
+    context_tokens: int
+    used_tokens: Optional[int] = None
+    remaining_tokens: Optional[int] = None
+    is_processing: Optional[bool] = None
+
+
 class LlamaCppModel(BaseModel):
     id: str
     status: str
     context_tokens: Optional[int] = None
     training_context_tokens: Optional[int] = None
     total_slots: Optional[int] = None
+    slots: Optional[list[LlamaCppSlot]] = None
+
 
 class LlamaCppInfo(BaseModel):
     status: Literal["running", "loading", "unavailable"]

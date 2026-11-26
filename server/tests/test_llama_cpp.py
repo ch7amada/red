@@ -1,3 +1,4 @@
+import pytest
 import time
 
 from linux_monitor.config import Settings
@@ -263,3 +264,153 @@ def test_secret_not_forwarded_on_redirect():
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=2)
+
+
+def test_bare_default_does_not_call_slots(monkeypatch):
+    settings = _settings()
+    seen = []
+
+    def fake(url, headers, deadline):
+        seen.append(url)
+        if url.endswith("/health"):
+            return 200, {"status": "ok"}
+        if url.endswith("/models"):
+            return 200, {"data": [{"id": "m"}]}
+        if url.endswith("/props"):
+            return 200, {"default_generation_settings": {"n_ctx": 4}}
+        if "/slots" in url:
+            raise AssertionError("slots should not be called by default")
+        raise AssertionError(url)
+
+    monkeypatch.setattr(llama_cpp, "_get_json", fake)
+    info = llama_cpp.collect_llama_cpp(settings)
+    assert info.models[0].slots is None
+    assert not any("/slots" in url for url in seen)
+
+
+@pytest.mark.parametrize("router", [False, True])
+def test_context_slots_projection_and_auth(monkeypatch, router):
+    settings = Settings(
+        reader_token="r" * 40,
+        admin_token="a" * 40,
+        environment="test",
+        llama_cpp_url="http://127.0.0.1:8081",
+        llama_cpp_api_key="secret",
+    )
+    seen = []
+
+    def fake(url, headers, deadline):
+        seen.append(url)
+        if "/health" in url:
+            return 200, {"status": "ok"}
+        if "/models" in url:
+            if router:
+                return 200, {"data": [{"id": "m", "status": {"value": "loaded"}}]}
+            return 200, {"data": [{"id": "m"}]}
+        if "/props" in url:
+            assert headers.get("Authorization") == "Bearer secret"
+            assert ("model=m" in url and "autoload=false" in url) == router
+            return 200, {
+                "is_sleeping": False,
+                "default_generation_settings": {"n_ctx": 9},
+                "total_slots": 2,
+            }
+        if "/slots" in url:
+            assert headers.get("Authorization") == "Bearer secret"
+            assert ("model=m" in url and "autoload=false" in url) == router
+            return 200, [
+                {"id": 0, "n_ctx": 10, "n_prompt_tokens": 3, "n_past": 99, "n_decoded": 7, "is_processing": True, "prompt": "dummy", "generated": "dummy", "params": {"foo": "bar"}},
+                {"id": 1, "n_ctx": 8, "n_prompt_tokens": 0},
+                {"id": 2, "n_ctx": 5},
+                {"id": 3, "n_ctx": 4, "n_prompt_tokens": -1, "n_past": "x"},
+                {"id": "bad", "n_ctx": 4},
+                {"id": 4, "n_ctx": 0},
+            ]
+        raise AssertionError(url)
+
+    monkeypatch.setattr(llama_cpp, "_get_json", fake)
+    info = llama_cpp.collect_llama_cpp(settings, include_llama_context=True)
+    model = info.models[0]
+    assert model.status == "loaded"
+    assert model.context_tokens == 9
+    assert model.slots is not None
+    assert [s.id for s in model.slots] == [0, 1, 2, 3]
+    assert model.slots[0].used_tokens == 3
+    assert model.slots[0].remaining_tokens == 7
+    assert model.slots[0].is_processing is True
+    assert set(model.slots[0].model_dump().keys()) == {"id", "context_tokens", "used_tokens", "remaining_tokens", "is_processing"}
+    assert model.slots[0].model_dump() == {"id": 0, "context_tokens": 10, "used_tokens": 3, "remaining_tokens": 7, "is_processing": True}
+    assert model.slots[1].used_tokens == 0
+    assert model.slots[1].remaining_tokens == 8
+    assert model.slots[2].used_tokens is None
+    assert model.slots[2].remaining_tokens is None
+    assert model.slots[3].used_tokens is None
+    assert model.slots[3].remaining_tokens is None
+    assert any("/slots" in url for url in seen)
+    info2 = llama_cpp.collect_llama_cpp(settings, include_llama_context=False)
+    assert info2.models[0].slots is None
+
+
+def test_context_slots_empty_malformed_disabled_sleeping(monkeypatch):
+    settings = _settings()
+
+    def empty_fake(url, headers, deadline):
+        if url.endswith("/health"):
+            return 200, {"status": "ok"}
+        if url.endswith("/models"):
+            return 200, {"data": [{"id": "m"}]}
+        if url.endswith("/props"):
+            return 200, {"default_generation_settings": {"n_ctx": 4}}
+        if url.endswith("/slots"):
+            return 200, []
+        raise AssertionError(url)
+
+    monkeypatch.setattr(llama_cpp, "_get_json", empty_fake)
+    info = llama_cpp.collect_llama_cpp(settings, include_llama_context=True)
+    assert info.models[0].slots == []
+
+    def malformed_fake(url, headers, deadline):
+        if url.endswith("/health"):
+            return 200, {"status": "ok"}
+        if url.endswith("/models"):
+            return 200, {"data": [{"id": "m"}]}
+        if url.endswith("/props"):
+            return 200, {"default_generation_settings": {"n_ctx": 4}}
+        if url.endswith("/slots"):
+            return 200, [{"bad": True}, {"id": 1}]
+        raise AssertionError(url)
+
+    monkeypatch.setattr(llama_cpp, "_get_json", malformed_fake)
+    info = llama_cpp.collect_llama_cpp(settings, include_llama_context=True)
+    assert info.models[0].slots is None
+
+    def disabled_fake(url, headers, deadline):
+        if url.endswith("/health"):
+            return 200, {"status": "ok"}
+        if url.endswith("/models"):
+            return 200, {"data": [{"id": "m"}]}
+        if url.endswith("/props"):
+            return 200, {"default_generation_settings": {"n_ctx": 4}}
+        if url.endswith("/slots"):
+            return 404, None
+        raise AssertionError(url)
+
+    monkeypatch.setattr(llama_cpp, "_get_json", disabled_fake)
+    info = llama_cpp.collect_llama_cpp(settings, include_llama_context=True)
+    assert info.models[0].slots is None
+
+    def sleeping_fake(url, headers, deadline):
+        if url.endswith("/health"):
+            return 200, {"status": "ok"}
+        if url.endswith("/models"):
+            return 200, {"data": [{"id": "m"}]}
+        if url.endswith("/props"):
+            return 200, {"is_sleeping": True, "default_generation_settings": {"n_ctx": 4}}
+        if url.endswith("/slots"):
+            raise AssertionError("slots should not be sampled")
+        raise AssertionError(url)
+
+    monkeypatch.setattr(llama_cpp, "_get_json", sleeping_fake)
+    info = llama_cpp.collect_llama_cpp(settings, include_llama_context=True)
+    assert info.models[0].status == "sleeping"
+    assert info.models[0].slots is None
