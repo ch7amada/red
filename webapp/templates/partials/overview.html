@@ -26,33 +26,6 @@
   {% endif %}
 </article>
 
-{% if s.llama_cpp %}
-<article class="card span-3">
-  <h3>llama.cpp</h3>
-  <p class="metric-line">Status: {{ s.llama_cpp.status }}</p>
-  {% if s.llama_cpp.error %}
-  <p class="error-text">{{ s.llama_cpp.error }}</p>
-  {% endif %}
-  {% if s.llama_cpp.models %}
-  <div class="gpu-list">
-    {% for model in s.llama_cpp.models %}
-    <section class="gpu-item">
-      <div class="gpu-head">
-        <strong style="overflow-wrap:anywhere; word-break:break-word;">{{ model.id }}</strong>
-        <span class="muted">{{ model.status }}</span>
-      </div>
-      {% if model.context_tokens is not none %}<span class="metric-line">Context per slot: {{ model.context_tokens }} tokens</span>{% endif %}
-      {% if model.training_context_tokens is not none %}<span class="metric-line">Training context: {{ model.training_context_tokens }} tokens</span>{% endif %}
-      {% if model.total_slots is not none %}<span class="metric-line">Slots: {{ model.total_slots }}</span>{% endif %}
-    </section>
-    {% endfor %}
-  </div>
-  {% elif not s.llama_cpp.error %}
-  <p class="muted">No models reported</p>
-  {% endif %}
-</article>
-{% endif %}
-
 <article class="card span-2">
   <h3>CPU</h3>
   {% if s.cpu.status != "ok" %}
@@ -195,31 +168,4 @@
     </ul>
   {% endif %}
 </article>
-{% if s.get("docker_status") is not none %}
-{% set _docker_containers = s.get("docker_containers") or [] %}
-{% set _docker_status = s.get("docker_status") %}
-
-<article class="card span-3">
-  <h3>Docker</h3>
-  {% if _docker_status.status != "ok" %}
-    <p class="error-text">{{ _docker_status.error or "Docker collection failed" }}</p>
-  {% else %}
-    <p class="muted">Docker running{% if _docker_containers %} &middot; {{ _docker_containers|length }} container(s){% endif %}</p>
-    {% if not _docker_containers %}
-      <p class="muted">No running containers</p>
-    {% else %}
-      <ul class="docker-list">
-        {% for c in _docker_containers %}
-        <li>
-          <strong>{{ c.id }}</strong>
-          <span class="muted">{{ c.name }}</span>
-          <span class="muted">{{ c.image }}</span>
-          <span>{{ c.status }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-  {% endif %}
-</article>
-{% endif %}
 {% endif %}

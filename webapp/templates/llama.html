@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}llama.cpp - Linux Monitor{% endblock %}
+{% block rail_footer %}{% include "partials/connection_panel.html" %}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>llama.cpp</h1>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary"
+            hx-get="/fragments/llama"
+            hx-target="#llama-content"
+            hx-swap="innerHTML"
+            hx-indicator="#llama-refresh-indicator">Refresh</button>
+    <span id="llama-refresh-indicator" class="htmx-indicator" aria-live="polite">Refreshing…</span>
+  </div>
+</header>
+<div class="llama-layout">
+  <section class="card" aria-labelledby="llama-context-heading">
+    <div class="page-header">
+      <h2 id="llama-context-heading">Context usage</h2>
+      <button type="button" class="btn btn-ghost"
+              hx-get="/fragments/llama/context"
+              hx-target="#llama-context"
+              hx-swap="innerHTML"
+              aria-label="Refresh context usage">Refresh usage</button>
+    </div>
+    <div id="llama-context"
+         hx-get="/fragments/llama/context"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+      <p class="muted">Loading context usage…</p>
+    </div>
+  </section>
+  <div id="llama-content" class="llama-catalog"
+       hx-get="/fragments/llama"
+       hx-trigger="load, every 5s"
+       hx-swap="innerHTML">
+    <p class="muted">Loading llama.cpp…</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% if error %}
+<article class="card error-card" role="alert">
+  <h2>Snapshot unavailable</h2>
+  <p>{{ error }}</p>
+</article>
+{% else %}
+{% set s = snapshot %}
+{% if s and s.get("llama_cpp") is not none %}
+{% set l = s.llama_cpp %}
+{% set loaded_count = l.models | selectattr("status", "equalto", "loaded") | list | length %}
+<article class="card">
+  <div class="hero-top">
+    {% if l.status == "running" %}
+    <span class="live-pill"><span class="live-dot"></span> Running</span>
+    {% else %}
+    <span class="muted">{{ l.status }}</span>
+    {% endif %}
+    {% if s %}<span class="snapshot-time">Sample {{ s.collected_at | dt }}</span>{% endif %}
+  </div>
+  <div class="hero-metrics">
+    {% if l.status == "running" and not l.error %}
+    <div>
+      <span class="metric-label">Loaded models</span>
+      <span class="metric-value">{{ loaded_count }}</span>
+    </div>
+    {% endif %}
+  </div>
+  {% if l.error %}
+  <p class="error-text">{{ l.error }}</p>
+  {% endif %}
+  {% if not l.models %}
+  {% if l.status == "running" and not l.error %}
+  <p class="muted">No models reported</p>
+  {% elif l.status == "loading" %}
+  <p class="muted">Loading models…</p>
+  {% else %}
+  <p class="muted">Model inventory unavailable</p>
+  {% endif %}
+  {% else %}
+  <div class="gpu-list">
+    {% for model in l.models %}
+    <section class="gpu-item">
+      <div class="gpu-head">
+        <strong>{{ model.id }}</strong>
+        <span class="muted">{{ model.status }}</span>
+      </div>
+      <dl class="net-list">
+        {% if model.context_tokens is not none %}<div><dt>Context</dt><dd>{{ model.context_tokens }} tokens</dd></div>{% endif %}
+        {% if model.training_context_tokens is not none %}<div><dt>Training context</dt><dd>{{ model.training_context_tokens }} tokens</dd></div>{% endif %}
+        {% if model.total_slots is not none %}<div><dt>Slots</dt><dd>{{ model.total_slots }}</dd></div>{% endif %}
+      </dl>
+      {% if model.context_error %}<p class="error-text">{{ model.context_error }}</p>{% endif %}
+    </section>
+    {% endfor %}
+  </div>
+  {% endif %}
+</article>
+{% elif s %}
+<article class="card">
+  <p class="muted">Model inventory unavailable</p>
+</article>
+{% endif %}
+{% endif %}

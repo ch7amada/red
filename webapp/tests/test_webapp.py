@@ -32,7 +32,7 @@ def _make(handler):
 
 
 @pytest.mark.parametrize("case", ["list_escaped", "empty", "error", "older"])
-def test_overview_docker(case):
+def test_docker_fragment_rendered(case):
     async def handler(request):
         if case == "older":
             return httpx.Response(200, json=_snapshot())
@@ -52,14 +52,14 @@ def test_overview_docker(case):
     r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
     assert r.status_code == 303
     cookies = r.cookies
-    r2 = client.get("/fragments/overview", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    r2 = client.get("/fragments/docker", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
     assert r2.status_code == 200
     if case == "list_escaped":
         assert "&lt;id&gt;" in r2.text
         assert "&lt;name&gt;" in r2.text
         assert "&lt;image&gt;" in r2.text
         assert "&lt;status&gt;" in r2.text
-        assert "1 container(s)" in r2.text
+        assert "Running containers" in r2.text
     elif case == "empty":
         assert "No running containers" in r2.text
     elif case == "error":
@@ -469,6 +469,11 @@ def _llama_snapshot() -> dict:
                 "training_context_tokens": 262144,
                 "total_slots": 2,
                 "context_error": None,
+                "slots": [
+                    {"id": 0, "context_tokens": 10, "used_tokens": 3, "remaining_tokens": 7, "is_processing": True},
+                    {"id": 1, "context_tokens": 8, "used_tokens": 0, "remaining_tokens": 8},
+                    {"id": 2, "context_tokens": 5},
+                ],
             },
             {
                 "id": "<unloaded-model>",
@@ -483,16 +488,16 @@ def _llama_snapshot() -> dict:
     return snap
 
 
-def test_overview_llama_cpp_rendered(monkeypatch):
+def test_llama_fragment_rendered(monkeypatch):
     async def handler(request):
         return httpx.Response(200, json=_llama_snapshot())
 
     client = _make(handler)
     r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
     cookies = r.cookies
-    r2 = client.get("/fragments/overview", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    r2 = client.get("/fragments/llama", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
     assert r2.status_code == 200
-    assert "llama.cpp" in r2.text
+    assert "Running" in r2.text
     assert "loaded-model" in r2.text
     assert "loaded" in r2.text
     assert "unloaded" in r2.text
@@ -503,7 +508,72 @@ def test_overview_llama_cpp_rendered(monkeypatch):
     assert "&lt;unloaded-model&gt;" in r2.text
 
 
-def test_overview_llama_cpp_absent():
+def test_llama_fragment_absent():
+    async def handler(request):
+        return httpx.Response(200, json=_snapshot())
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    cookies = r.cookies
+    r2 = client.get("/fragments/llama", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    assert r2.status_code == 200
+    assert "llama.cpp" not in r2.text
+
+
+def test_docker_page_requires_session():
+    async def handler(request):
+        return httpx.Response(200, json=_snapshot())
+
+    client = _make(handler)
+    r = client.get("/docker", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers.get("location") == "/connect"
+
+
+def test_llama_page_requires_session():
+    async def handler(request):
+        return httpx.Response(200, json=_snapshot())
+
+    client = _make(handler)
+    r = client.get("/llama", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers.get("location") == "/connect"
+
+
+def test_signed_in_pages_render():
+    async def handler(request):
+        if request.url.path == "/api/v1/system":
+            return httpx.Response(200, json=_snapshot())
+        if request.url.path.startswith("/api/v1/jobs/"):
+            return httpx.Response(404, json={"error": {"code": "job_not_found", "message": "job not found"}})
+        return httpx.Response(404)
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    cookies = r.cookies
+    for path in ("/docker", "/llama"):
+        rr = client.get(path, cookies=cookies, follow_redirects=False)
+        assert rr.status_code == 200
+
+
+def test_active_nav():
+    async def handler(request):
+        if request.url.path == "/api/v1/system":
+            return httpx.Response(200, json=_snapshot())
+        if request.url.path.startswith("/api/v1/jobs/"):
+            return httpx.Response(404, json={"error": {"code": "job_not_found", "message": "job not found"}})
+        return httpx.Response(404)
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    cookies = r.cookies
+    for path in ("/", "/control", "/docker", "/llama"):
+        rr = client.get(path, cookies=cookies, follow_redirects=False)
+        assert rr.status_code == 200
+        assert 'aria-current="page"' in rr.text
+
+
+def test_overview_has_no_docker_or_llama_cards():
     async def handler(request):
         return httpx.Response(200, json=_snapshot())
 
@@ -512,4 +582,61 @@ def test_overview_llama_cpp_absent():
     cookies = r.cookies
     r2 = client.get("/fragments/overview", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
     assert r2.status_code == 200
+    assert "Docker" not in r2.text
     assert "llama.cpp" not in r2.text
+
+
+def test_llama_context_fragment_rendered():
+    async def handler(request):
+        if request.url.path.startswith("/api/v1/system"):
+            return httpx.Response(200, json=_llama_snapshot())
+        return httpx.Response(404)
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    cookies = r.cookies
+    r2 = client.get("/fragments/llama/context", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    assert r2.status_code == 200
+    assert "Sample" in r2.text
+    assert "loaded-model" in r2.text
+    assert "Used" in r2.text
+    assert "Remaining" in r2.text
+    assert "Capacity" in r2.text
+    assert "Unknown" in r2.text
+    assert "No loaded model" not in r2.text
+
+
+def test_llama_context_opt_in_query():
+    calls = []
+
+    async def handler(request):
+        calls.append(str(request.url))
+        if request.url.path.startswith("/api/v1/system"):
+            return httpx.Response(200, json=_llama_snapshot())
+        return httpx.Response(404)
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    cookies = r.cookies
+    calls.clear()
+    client.get("/fragments/llama/context", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    assert any("include_llama_context=true" in url for url in calls)
+    calls.clear()
+    client.get("/fragments/llama", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    assert not any("include_llama_context=true" in url for url in calls)
+
+
+def test_llama_page_no_recurring_context_trigger():
+    async def handler(request):
+        if request.url.path == "/api/v1/system":
+            return httpx.Response(200, json=_snapshot())
+        if request.url.path.startswith("/api/v1/jobs/"):
+            return httpx.Response(404, json={"error": {"code": "job_not_found", "message": "job not found"}})
+        return httpx.Response(404)
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    cookies = r.cookies
+    r2 = client.get("/llama", cookies=cookies, follow_redirects=False)
+    assert r2.status_code == 200
+    assert r2.text.count("every") == 1

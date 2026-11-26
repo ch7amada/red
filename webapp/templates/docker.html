@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Docker - Linux Monitor{% endblock %}
+{% block rail_footer %}{% include "partials/connection_panel.html" %}{% endblock %}
+{% block content %}
+<header class="page-header">
+  <h1>Docker</h1>
+  <div class="page-actions">
+    <button type="button" class="btn btn-primary"
+            hx-get="/fragments/docker"
+            hx-target="#docker-content"
+            hx-swap="innerHTML"
+            hx-indicator="#docker-refresh-indicator">Refresh</button>
+    <span id="docker-refresh-indicator" class="htmx-indicator" aria-live="polite">Refreshing…</span>
+  </div>
+</header>
+<section id="docker-content" class="dashboard"
+         hx-get="/fragments/docker"
+         hx-trigger="load, every 5s"
+         hx-swap="innerHTML">
+  <p class="muted">Loading Docker…</p>
+</section>
+{% endblock %}

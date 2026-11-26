@@ -223,7 +223,7 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
 .muted { color: var(--muted); }
 .error-text { color: var(--error); font-size: 14px; }
 
-.fs-list, .net-list, .gpu-list, .docker-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.fs-list, .net-list, .gpu-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
 .fs-head, .gpu-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .gpu-item { border-top: 1px solid var(--card-border); padding-top: 12px; }
 .gpu-item:first-child { border-top: none; padding-top: 0; }
@@ -234,7 +234,18 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
 .net-list dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 6px 0 0; }
 .net-list dt { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .net-list dd { margin: 0; font-size: 13px; word-break: break-word; }
-.docker-list li { word-break: break-word; }
+.docker-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 600px) { .docker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .docker-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.docker-meta { display: grid; grid-template-columns: 1fr; gap: 4px 12px; margin: 8px 0 0; }
+.docker-meta dt { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.docker-meta dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; word-break: break-word; }
+.docker-grid strong { overflow-wrap: anywhere; word-break: break-word; }
+.llama-layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 1000px) { .llama-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; } }
+.context-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.context-list li { border-top: 1px solid var(--card-border); padding-top: 12px; overflow-wrap: anywhere; }
+.context-list li:first-child { border-top: none; padding-top: 0; }
 
 .alert {
   background: var(--error-bg); color: var(--error);
@@ -276,7 +287,7 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
   .rail {
     position: sticky; top: 0; height: auto;
     flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px;
-    padding: 10px 58px 10px 12px; border-right: none; border-bottom: 1px solid var(--card-border);
+    padding: 10px 52px 10px 12px; border-right: none; border-bottom: 1px solid var(--card-border);
     z-index: 5; background: var(--surface);
   }
   .page-header { padding-right: 0; }
@@ -306,8 +317,8 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
   input, select, textarea { scroll-margin-top: 96px; }
   .nav-item, .btn { min-height: 44px; }
 }
-@media (max-width: 360px) {
-  .rail { gap: 6px 8px; padding: 8px 58px 8px 10px; }
+@media (max-width: 390px) {
+  .rail { gap: 6px 8px; padding: 8px 52px 8px 10px; }
   .nav-item { padding: 8px 10px; font-size: 14px; }
   .main { padding: 12px; }
   .card { padding: 14px; }

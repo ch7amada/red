@@ -318,8 +318,9 @@ def create_app(
         detail = _error_detail(response)
         return None, kind, detail if detail else f"HTTP {status}"
 
-    async def fetch_system(token: str) -> tuple[Optional[dict], str]:
-        data, kind, _ = await _call(token, "GET", "/api/v1/system", timeout=10.0)
+    async def fetch_system(token: str, include_llama_context: bool = False) -> tuple[Optional[dict], str]:
+        path = "/api/v1/system?include_llama_context=true" if include_llama_context else "/api/v1/system"
+        data, kind, _ = await _call(token, "GET", path, timeout=10.0)
         if kind == "ok":
             return data, ""
         if kind in ("unauthorized", "forbidden"):
@@ -430,15 +431,27 @@ def create_app(
     @app.get("/fragments/overview", response_class=HTMLResponse)
     async def overview_fragment(request: Request) -> Any:
         session = require_session(request)
-        payload, kind = await fetch_system(session.token)
+        return await _render_system_fragment(request, session, "partials/overview.html")
+
+    def _is_hx(request: Request) -> bool:
+        return bool(request.headers.get("HX-Request"))
+
+    async def _render_system_fragment(
+        request: Request,
+        session: Session,
+        template_name: str,
+        *,
+        include_llama_context: bool = False,
+    ) -> Any:
+        payload, kind = await fetch_system(session.token, include_llama_context=include_llama_context)
         if kind == "invalid":
             session_store.revoke(request.cookies.get(settings.cookie_name))
             raise HTTPException(status_code=401, detail="Upstream rejected credentials")
         if kind == "unavailable":
-            hx = bool(request.headers.get("HX-Request"))
+            hx = _is_hx(request)
             status_code = 200 if hx else 503
             response = templates.TemplateResponse(
-                request, "partials/overview.html",
+                request, template_name,
                 {"error": "Monitoring server unavailable or degraded.", "snapshot": None},
                 status_code=status_code,
             )
@@ -446,12 +459,9 @@ def create_app(
                 response.headers["HX-Reswap"] = "innerHTML"
             return response
         return templates.TemplateResponse(
-            request, "partials/overview.html",
+            request, template_name,
             {"error": None, "snapshot": payload},
         )
-
-    def _is_hx(request: Request) -> bool:
-        return bool(request.headers.get("HX-Request"))
 
     def _session_or_401(request: Request) -> Session:
         session = get_session(request)
@@ -508,6 +518,33 @@ def create_app(
         session = _session_or_401(request)
         ctx = await _control_context(request, session)
         return templates.TemplateResponse(request, "control.html", ctx)
+
+    @app.get("/docker", response_class=HTMLResponse)
+    async def docker_page(request: Request) -> Any:
+        _session_or_401(request)
+        return templates.TemplateResponse(request, "docker.html", {})
+
+    @app.get("/llama", response_class=HTMLResponse)
+    async def llama_page(request: Request) -> Any:
+        _session_or_401(request)
+        return templates.TemplateResponse(request, "llama.html", {})
+
+    @app.get("/fragments/docker", response_class=HTMLResponse)
+    async def docker_fragment(request: Request) -> Any:
+        session = require_session(request)
+        return await _render_system_fragment(request, session, "partials/docker.html")
+
+    @app.get("/fragments/llama", response_class=HTMLResponse)
+    async def llama_fragment(request: Request) -> Any:
+        session = require_session(request)
+        return await _render_system_fragment(request, session, "partials/llama.html")
+
+    @app.get("/fragments/llama/context", response_class=HTMLResponse)
+    async def llama_context_fragment(request: Request) -> Any:
+        session = require_session(request)
+        return await _render_system_fragment(
+            request, session, "partials/llama_context.html", include_llama_context=True
+        )
 
     @app.get("/control/jobs/{job_id}", response_class=HTMLResponse)
     async def control_job_status(request: Request, job_id: str) -> Any:

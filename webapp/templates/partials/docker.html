@@ -1,0 +1,53 @@
+{% if error %}
+<article class="card error-card" role="alert">
+  <h2>Snapshot unavailable</h2>
+  <p>{{ error }}</p>
+</article>
+{% else %}
+{% set s = snapshot %}
+{% if s and s.get("docker_status") is not none %}
+{% set _docker_containers = s.get("docker_containers") or [] %}
+{% set _docker_status = s.get("docker_status") %}
+<article class="card span-3 hero">
+  <div class="hero-top">
+    {% if _docker_status.status == "ok" %}
+    <span class="live-pill"><span class="live-dot"></span> Docker running</span>
+    {% else %}
+    <span class="muted">Docker unavailable</span>
+    {% endif %}
+    <span class="snapshot-time">Sample {{ s.collected_at | dt }}</span>
+  </div>
+  <h2>Docker engine</h2>
+  {% if _docker_status.status != "ok" %}
+  <p class="error-text">{{ _docker_status.error or "Docker collection failed" }}</p>
+  {% else %}
+  <div class="hero-metrics">
+    <div>
+      <span class="metric-label">Running containers</span>
+      <span class="metric-big">{{ _docker_containers|length }}</span>
+    </div>
+  </div>
+  {% endif %}
+</article>
+{% if _docker_status.status == "ok" %}
+{% if not _docker_containers %}
+<p class="muted">No running containers</p>
+{% else %}
+<div class="docker-grid span-3">
+  {% for c in _docker_containers %}
+  <article class="card">
+    <div class="gpu-head">
+      <strong>{{ c.name }}</strong>
+      <span class="muted">{{ c.status }}</span>
+    </div>
+    <dl class="docker-meta">
+      <div><dt>Image</dt><dd>{{ c.image }}</dd></div>
+      <div><dt>ID</dt><dd>{{ c.id }}</dd></div>
+    </dl>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endif %}
+{% endif %}

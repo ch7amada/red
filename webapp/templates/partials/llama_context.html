@@ -1,0 +1,68 @@
+{% if error %}
+<p class="error-text" role="alert">{{ error }}</p>
+{% else %}
+{% set s = snapshot %}
+{% if s %}<p class="snapshot-time">Sample {{ s.collected_at | dt }}</p>{% endif %}
+{% set l = s.get("llama_cpp") if s else none %}
+{% if not s or not l or l.status != "running" or l.error %}
+<p class="muted">Context usage unavailable</p>
+{% else %}
+{% set ns = namespace(has_loaded=false) %}
+{% if l.models %}
+<div class="gpu-list">
+  {% for model in l.models %}
+  {% if model.status == "loaded" %}
+  {% set ns.has_loaded = true %}
+  <section class="gpu-item">
+    <div class="gpu-head">
+      <h3 class="model-title">{{ model.id }}</h3>
+      <span class="muted">{{ model.status }}</span>
+    </div>
+    {% set slots = model.get("slots") %}
+    {% if slots is none %}
+    <p class="muted">Context usage unavailable</p>
+    {% elif slots == [] %}
+    <p class="muted">No slots reported</p>
+    {% else %}
+    <ul class="context-list">
+      {% for slot in slots %}
+      <li>
+        <span class="muted">Slot {{ slot.id }}</span>
+        <div class="hero-metrics">
+          <div>
+            <span class="metric-label">Used</span>
+            <span class="metric-value-small">{% if slot.get("used_tokens") is not none %}{{ "{:,}".format(slot.get("used_tokens")) }} tokens{% else %}Unknown{% endif %}</span>
+          </div>
+          <div>
+            <span class="metric-label">Remaining</span>
+            <span class="metric-value-small">{% if slot.get("remaining_tokens") is not none %}{{ "{:,}".format(slot.get("remaining_tokens")) }} tokens{% else %}Unknown{% endif %}</span>
+          </div>
+          <div>
+            <span class="metric-label">Capacity</span>
+            <span class="metric-value-small">{% if slot.get("context_tokens") is not none %}{{ "{:,}".format(slot.get("context_tokens")) }} tokens{% else %}Unknown{% endif %}</span>
+          </div>
+        </div>
+        {% if slot.get("used_tokens") is not none and slot.get("context_tokens") %}
+        {% set raw = slot.get("used_tokens") / slot.get("context_tokens") * 100 %}
+        {% set clamped = [[raw, 0]|max, 100]|min %}
+        <div class="bar" role="progressbar"
+             aria-valuenow="{{ clamped }}" aria-valuemin="0" aria-valuemax="100"
+             aria-label="Context usage for slot {{ slot.id }}">
+          <span style="width: {{ clamped }}%"></span>
+        </div>
+        {% endif %}
+        {% if slot.is_processing %}<p class="muted">Processing</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% if not ns.has_loaded %}
+<p class="muted">No loaded model</p>
+{% endif %}
+{% endif %}
+{% endif %}
