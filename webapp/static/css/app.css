@@ -175,7 +175,7 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
 .span-2 { grid-column: span 2; }
 .span-3 { grid-column: 1 / -1; }
 @media (max-width: 599px) { .span-2, .span-3 { grid-column: auto; } }
-@media (min-width: 600px) and (max-width: 999px) { .span-2 { grid-column: span 2; } }
+@media (min-width: 600px) and (max-width: 999px) { .span-2 { grid-column: span 2; } .network-card { grid-column: 1 / -1; } }
 
 .card {
   background: var(--card);

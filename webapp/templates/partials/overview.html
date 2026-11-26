@@ -105,7 +105,7 @@
   {% endif %}
 </article>
 
-<article class="card">
+<article class="card network-card">
   <h3>Network</h3>
   {% if s.network_status.status != "ok" %}
     <p class="error-text">{{ s.network_status.error or "Network collection failed" }}</p>
