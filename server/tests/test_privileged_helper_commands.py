@@ -142,3 +142,35 @@ def test_truncate_output_helper():
     out, trunc = ph.truncate_output(text)
     assert trunc is True
     assert len(out) <= ph.OUTPUT_CAP_BYTES
+
+
+def test_docker_ps_fixed_argv_env_and_cwd():
+    class R:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+        timed_out = False
+        stdout_truncated = False
+
+    calls = []
+
+    def runner(argv, *, timeout=None, env=None, cwd=None):
+        calls.append((list(argv), timeout, env, cwd))
+        return R()
+
+    result = ph.docker_ps(runner)
+    assert result == {"containers": []}
+    argv, timeout, env, cwd = calls[0]
+    assert argv == [
+        "/usr/bin/docker",
+        "--config",
+        "/etc/docker",
+        "--host",
+        "unix:///var/run/docker.sock",
+        "ps",
+        "--format",
+        '{"id":{{json .ID}},"name":{{json .Names}},"image":{{json .Image}},"status":{{json .Status}}}',
+    ]
+    assert timeout == 2.0
+    assert env == ph.scrubbed_env()
+    assert cwd == "/"

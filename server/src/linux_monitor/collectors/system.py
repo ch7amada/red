@@ -15,6 +15,7 @@ from ..schemas import (
 )
 from .base import collect_hostname, collect_os, collect_uptime
 from .cpu import collect_cpu
+from .docker import collect_docker
 from .gpu import collect_gpus
 from .memory import collect_memory, collect_swap
 from .network import collect_network
@@ -62,6 +63,13 @@ def collect_system(settings: Settings) -> SystemInfo:
         gpus = []
         gpu_status = ComponentStatus(status="error", error="collection failed")
 
+    try:
+        docker_containers, docker_error = collect_docker(settings)
+        docker_status = ComponentStatus(status="error", error=docker_error) if docker_error else ComponentStatus(status="ok")
+    except Exception:
+        docker_containers = []
+        docker_status = ComponentStatus(status="error", error="collection failed")
+
     return SystemInfo(
         collected_at=datetime.now(timezone.utc),
         hostname=hostname,
@@ -77,4 +85,6 @@ def collect_system(settings: Settings) -> SystemInfo:
         network_status=network_status,
         gpus=gpus,
         gpu_status=gpu_status,
+        docker_containers=docker_containers,
+        docker_status=docker_status,
     )

@@ -31,6 +31,43 @@ def _make(handler):
     return TestClient(create_app(Settings(upstream_url="http://upstream"), upstream=upstream))
 
 
+@pytest.mark.parametrize("case", ["list_escaped", "empty", "error", "older"])
+def test_overview_docker(case):
+    async def handler(request):
+        if case == "older":
+            return httpx.Response(200, json=_snapshot())
+        snap = _snapshot()
+        if case == "list_escaped":
+            snap["docker_containers"] = [{"id": "<id>", "name": "<name>", "image": "<image>", "status": "<status>"}]
+            snap["docker_status"] = {"status": "ok", "error": None}
+        elif case == "empty":
+            snap["docker_containers"] = []
+            snap["docker_status"] = {"status": "ok", "error": None}
+        elif case == "error":
+            snap["docker_containers"] = []
+            snap["docker_status"] = {"status": "error", "error": "collection failed"}
+        return httpx.Response(200, json=snap)
+
+    client = _make(handler)
+    r = client.post("/connect", data={"token": "t" * 32}, headers={"origin": "http://testserver"}, follow_redirects=False)
+    assert r.status_code == 303
+    cookies = r.cookies
+    r2 = client.get("/fragments/overview", cookies=cookies, headers={"HX-Request": "true"}, follow_redirects=False)
+    assert r2.status_code == 200
+    if case == "list_escaped":
+        assert "&lt;id&gt;" in r2.text
+        assert "&lt;name&gt;" in r2.text
+        assert "&lt;image&gt;" in r2.text
+        assert "&lt;status&gt;" in r2.text
+        assert "1 container(s)" in r2.text
+    elif case == "empty":
+        assert "No running containers" in r2.text
+    elif case == "error":
+        assert "collection failed" in r2.text
+    elif case == "older":
+        assert "Docker" not in r2.text
+
+
 def test_connect_success_sets_session_and_renders():
     async def handler(request):
         assert request.headers["authorization"] == "Bearer " + "t" * 32

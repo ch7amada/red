@@ -223,7 +223,7 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
 .muted { color: var(--muted); }
 .error-text { color: var(--error); font-size: 14px; }
 
-.fs-list, .net-list, .gpu-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.fs-list, .net-list, .gpu-list, .docker-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
 .fs-head, .gpu-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .gpu-item { border-top: 1px solid var(--card-border); padding-top: 12px; }
 .gpu-item:first-child { border-top: none; padding-top: 0; }
@@ -234,6 +234,7 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
 .net-list dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; margin: 6px 0 0; }
 .net-list dt { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .net-list dd { margin: 0; font-size: 13px; word-break: break-word; }
+.docker-list li { word-break: break-word; }
 
 .alert {
   background: var(--error-bg); color: var(--error);

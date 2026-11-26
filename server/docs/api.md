@@ -52,7 +52,7 @@ Response `200`:
 Reader or admin. Returns the monitoring snapshot.
 
 Response `200`: `SystemInfo` object with `schema_version`, `collected_at`, `hostname`,
-`os`, `uptime_seconds`, `cpu`, `memory`, `swap`, `filesystems`, `network`, and `gpus`.
+`os`, `uptime_seconds`, `cpu`, `memory`, `swap`, `filesystems`, `network`, `gpus`, and Docker containers (`docker_containers` with `docker_status`).
 
 ### `POST /api/v1/updates/check`
 
@@ -126,6 +126,15 @@ callback interface.
 - Cancellation stops the timer if still within the cancellation window.
 - If the service restarts after the scheduled time, the action is marked `unknown`
   because execution cannot be confirmed.
+
+
+## Docker monitoring
+
+- `GET /api/v1/system` includes running containers only (`docker ps` semantics).
+- Container rows: `id`, `name`, `image`, `status`.
+- Docker availability is reported via `docker_status` (`ok` when Docker ran, even with zero containers).
+- Failures (missing binary/daemon/permission/timeout) degrade to an empty list with `status: error` and a generic error; other collectors are unaffected.
+- The privileged helper runs fixed `docker ps` semantics against `/var/run/docker.sock`; exact argv is in deployment docs.
 
 ## Output limits
 

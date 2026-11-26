@@ -14,6 +14,10 @@ APT_GET = "/usr/bin/apt-get"
 SHUTDOWN = "/usr/bin/shutdown"
 SYSTEMD_RUN = "/usr/bin/systemd-run"
 SYSTEMCTL = "/usr/bin/systemctl"
+DOCKER = "/usr/bin/docker"
+DOCKER_CONFIG = "/etc/docker"
+DOCKER_HOST = "unix:///var/run/docker.sock"
+DOCKER_PS_FORMAT = '{"id":{{json .ID}},"name":{{json .Names}},"image":{{json .Image}},"status":{{json .Status}}}'
 POWER_UNIT = "linux-monitor-power-schedule"
 
 OUTPUT_CAP_BYTES = 1 * 1024 * 1024
@@ -268,6 +272,36 @@ def power_cancel(
     return {"cancelled": True}
 
 
+def docker_ps(
+    runner: Optional[Callable[..., subprocess.CompletedProcess]] = None,
+    *,
+    docker: str = DOCKER,
+) -> dict[str, Any]:
+    """Fixed read-only Docker container listing (running containers only)."""
+    if runner is None:
+        runner = run_process
+    argv = [
+        docker,
+        "--config",
+        DOCKER_CONFIG,
+        "--host",
+        DOCKER_HOST,
+        "ps",
+        "--format",
+        DOCKER_PS_FORMAT,
+    ]
+    result = runner(argv, timeout=2.0, env=scrubbed_env(), cwd="/")
+    if (
+        getattr(result, "timed_out", False)
+        or getattr(result, "returncode", 1) != 0
+        or getattr(result, "stdout_truncated", False)
+    ):
+        raise HelperError("docker_ps_failed", "docker ps failed")
+    stdout = getattr(result, "stdout", "") or ""
+    containers = [json.loads(line) for line in stdout.splitlines()]
+    return {"containers": containers}
+
+
 def _validate_power_args(args: list[str]) -> tuple[str, str, int]:
     if len(args) != 2:
         raise HelperError("invalid_arguments", "power-schedule requires <reboot|shutdown> <delay>")
@@ -307,6 +341,10 @@ def main(argv: Optional[list[str]] = None) -> int:
             if rest:
                 raise HelperError("invalid_arguments", "power-cancel takes no arguments")
             result = power_cancel(runner)
+        elif operation == "docker-ps":
+            if rest:
+                raise HelperError("invalid_arguments", "docker-ps takes no arguments")
+            result = docker_ps(runner)
         else:
             raise HelperError("invalid_operation", f"unknown operation: {operation}")
     except HelperError as exc:

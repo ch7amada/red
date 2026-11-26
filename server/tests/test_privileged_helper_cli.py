@@ -15,6 +15,7 @@ def test_cli_rejects_extra_args(monkeypatch):
     monkeypatch.setattr(ph, "run_process", lambda *a, **k: None)
     assert ph.main(["apt-check", "extra"]) == 1
     assert ph.main(["power-cancel", "extra"]) == 1
+    assert ph.main(["docker-ps", "extra"]) == 1
 
 
 def test_cli_rejects_bad_power_args(monkeypatch):

@@ -82,6 +82,13 @@ class GpuInfo(BaseModel):
     temperature_celsius: Optional[float] = None
 
 
+class DockerContainerInfo(BaseModel):
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    image: str = Field(min_length=1)
+    status: str = Field(min_length=1)
+
+
 class SystemInfo(BaseModel):
     schema_version: str = "1.0"
     collected_at: datetime
@@ -98,6 +105,8 @@ class SystemInfo(BaseModel):
     network_status: ComponentStatus = Field(default_factory=ComponentStatus)
     gpus: list[GpuInfo] = Field(default_factory=list)
     gpu_status: ComponentStatus = Field(default_factory=ComponentStatus)
+    docker_containers: list[DockerContainerInfo] = Field(default_factory=list)
+    docker_status: ComponentStatus = Field(default_factory=ComponentStatus)
 
 class JobResponse(BaseModel):
     id: str

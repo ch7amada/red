@@ -110,9 +110,11 @@ linux-monitor ALL=(root) NOPASSWD: /usr/local/libexec/linux-monitor-privileged
 ```
 
 Validate with `visudo -cf /etc/sudoers.d/linux-monitor`. There is no `NOPASSWD: ALL`.
-The helper accepts only `apt-check`, `apt-apply`, `power-schedule`, and `power-cancel`,
+The helper accepts only `apt-check`, `apt-apply`, `power-schedule`, `power-cancel`, and `docker-ps`,
 and validates all arguments internally. Any sudo or helper failure is noninteractive
 because the service uses `sudo -n`.
+
+New installs and updates refresh the fixed helper. Docker monitoring requires the normal rootful Docker socket and binary; availability is reported as `docker_status`.
 
 ## Privileged helper
 
@@ -123,6 +125,7 @@ It runs only:
 - `apt-apply`: install available upgrades without removals
 - `power-schedule <reboot|shutdown> <delay>`: create a transient systemd timer
 - `power-cancel`: stop the transient power timer
+- `docker-ps`: list running Docker containers (fixed `/usr/bin/docker --config /etc/docker --host unix:///var/run/docker.sock ps`)
 
 ## SQLite and retention
 
