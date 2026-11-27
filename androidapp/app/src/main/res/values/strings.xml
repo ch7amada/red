@@ -11,10 +11,6 @@
     <!-- CPU card -->
     <string name="cpu_title">CPU</string>
     <string name="cpu_utilization_label">CPU utilization</string>
-    <string name="load_average_label">Load average</string>
-    <string name="load_1m_label">1 min</string>
-    <string name="load_5m_label">5 min</string>
-    <string name="load_15m_label">15 min</string>
 
     <!-- Memory card -->
     <string name="memory_title">Memory</string>

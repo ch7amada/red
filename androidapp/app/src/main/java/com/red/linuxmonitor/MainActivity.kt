@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.DeveloperBoard
@@ -20,7 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
-
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -108,19 +111,6 @@ class MainActivity : ComponentActivity() {
                     val railWidth = if (LocalConfiguration.current.fontScale > 1.3f) 120.dp else 88.dp
 
                     if (useRail) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            TextButton(onClick = disconnect) {
-                                Text(stringResource(R.string.connection_disconnect))
-                            }
-                        }
-                    }
-                    if (useRail) {
                         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                             Column(
                                 modifier = Modifier.width(railWidth),
@@ -153,15 +143,18 @@ class MainActivity : ComponentActivity() {
                                         Destination.SYSTEM -> SystemInfoScreen(
                                             state = state,
                                             onRefresh = { viewModel.refreshSnapshot() },
+                                            onDisconnect = disconnect,
                                         )
                                         Destination.DOCKER -> DockerScreen(
                                             state = state,
                                             onRefresh = { viewModel.refreshSnapshot() },
+                                            onDisconnect = disconnect,
                                         )
                                         Destination.LLAMA -> LlamaScreen(
                                             state = state,
                                             onRefresh = { viewModel.refreshSnapshot() },
                                             onRefreshContext = { viewModel.refreshContext() },
+                                            onDisconnect = disconnect,
                                         )
                                         Destination.CONTROL -> ControlScreen(
                                             state = state,
@@ -170,6 +163,7 @@ class MainActivity : ComponentActivity() {
                                             onApplyUpdates = { viewModel.applyUpdates(it) },
                                             onSchedulePower = { a, d, c -> viewModel.schedulePower(a, d, c) },
                                             onCancelPower = { viewModel.cancelPower(it) },
+                                            onDisconnect = disconnect,
                                         )
                                     }
                                 }
@@ -182,15 +176,18 @@ class MainActivity : ComponentActivity() {
                                     Destination.SYSTEM -> SystemInfoScreen(
                                         state = state,
                                         onRefresh = { viewModel.refreshSnapshot() },
+                                        onDisconnect = disconnect,
                                     )
                                     Destination.DOCKER -> DockerScreen(
                                         state = state,
                                         onRefresh = { viewModel.refreshSnapshot() },
+                                        onDisconnect = disconnect,
                                     )
                                     Destination.LLAMA -> LlamaScreen(
                                         state = state,
                                         onRefresh = { viewModel.refreshSnapshot() },
                                         onRefreshContext = { viewModel.refreshContext() },
+                                        onDisconnect = disconnect,
                                     )
                                     Destination.CONTROL -> ControlScreen(
                                         state = state,
@@ -199,23 +196,13 @@ class MainActivity : ComponentActivity() {
                                         onApplyUpdates = { viewModel.applyUpdates(it) },
                                         onSchedulePower = { a, d, c -> viewModel.schedulePower(a, d, c) },
                                         onCancelPower = { viewModel.cancelPower(it) },
+                                        onDisconnect = disconnect,
                                     )
                                 }
                             }
                         }
                     }
                     if (!useRail) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            TextButton(onClick = disconnect) {
-                                Text(stringResource(R.string.connection_disconnect))
-                            }
-                        }
                         DestinationBar(
                             selected = destination,
                             onNavigate = { destination = it },
@@ -287,6 +274,35 @@ class MainActivity : ComponentActivity() {
                     colors = itemColors,
                 )
             }
+        }
+    }
+}
+
+@Composable
+internal fun ConnectedScreenHeader(
+    title: String,
+    onDisconnect: () -> Unit,
+    refreshAction: @Composable () -> Unit = {},
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.displayMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .semantics { heading() }
+                .weight(1f),
+        )
+        refreshAction()
+        IconButton(onClick = onDisconnect, modifier = Modifier.align(Alignment.Top)) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.Logout,
+                contentDescription = stringResource(R.string.connection_disconnect),
+            )
         }
     }
 }

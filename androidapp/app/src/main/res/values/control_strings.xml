@@ -11,11 +11,12 @@
     <string name="control_updates_checkbox_confirm">I confirm I want to install updates</string>
     <string name="control_updates_no_job">No update operation running.</string>
     <string name="control_updates_status_label">Status</string>
-    <string name="control_updates_packages_title">Packages</string>
-    <string name="control_updates_count">%1$d package(s)</string>
-    <string name="control_updates_reboot_required">Reboot required</string>
-    <string name="control_updates_output_truncated">Output truncated.</string>
-    <string name="control_updates_no_packages">No packages to update.</string>
+    <plurals name="control_updates_count">
+        <item quantity="one">%d package available</item>
+        <item quantity="other">%d packages available</item>
+    </plurals>
+    <string name="control_updates_check_success">Update check complete.</string>
+    <string name="control_updates_successful">Successful</string>
 
     <string name="control_reboot_title">Server reboot</string>
     <string name="control_reboot_explanation">A reboot would briefly interrupt the connection.</string>

@@ -39,13 +39,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
@@ -61,6 +60,7 @@ internal fun ControlScreen(
     onApplyUpdates: (Boolean) -> Unit,
     onSchedulePower: (String, Int, String) -> Unit,
     onCancelPower: (String) -> Unit,
+    onDisconnect: () -> Unit,
 ) {
     var confirmApply by rememberSaveable { mutableStateOf(false) }
     var showApplyDialog by remember { mutableStateOf(false) }
@@ -84,11 +84,9 @@ internal fun ControlScreen(
     ) {
         Spacer(modifier = Modifier.height(28.dp))
 
-        Text(
-            text = stringResource(R.string.control_title),
-            style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.semantics { heading() },
+        ConnectedScreenHeader(
+            title = stringResource(R.string.control_title),
+            onDisconnect = onDisconnect,
         )
 
         if (hostName != null) {
@@ -470,79 +468,27 @@ private fun JobStatusBlock(job: JSONObject?, jobError: String?, jobBusy: Boolean
     }
 
     val status = job.optString("status", "")
+    val kind = job.optString("kind")
+    val result = job.optJSONObject("result")
+    val statusText = when {
+        status == "succeeded" && kind == "update_check" -> {
+            val count = result?.optInt("count", -1) ?: -1
+            if (count >= 0) {
+                pluralStringResource(R.plurals.control_updates_count, count, count)
+            } else {
+                stringResource(R.string.control_updates_check_success)
+            }
+        }
+        status == "succeeded" && kind == "update_apply" ->
+            stringResource(R.string.control_updates_successful)
+        else ->
+            "${stringResource(R.string.control_updates_status_label)}: $status"
+    }
     Text(
-        text = "${stringResource(R.string.control_updates_status_label)}: $status",
+        text = statusText,
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
     )
-
-    val result = job.optJSONObject("result")
-    if (result != null) {
-        val count = if (result.has("count")) result.optInt("count") else -1
-        if (count >= 0) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.control_updates_count, count),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-            )
-        }
-        val packages = result.optJSONArray("packages")
-        if (packages != null && packages.length() > 0) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.control_updates_packages_title),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            for (i in 0 until packages.length()) {
-                val p = packages.optJSONObject(i) ?: continue
-                val name = p.optString("name")
-                val current = p.optString("current", "")
-                val candidate = p.optString("candidate", "")
-                Text(
-                    text = "$name: $current → $candidate",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
-                )
-            }
-        } else if (result.has("count") && result.optInt("count") == 0 && job.optString("kind") == "update_check") {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.control_updates_no_packages),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-            )
-        }
-        if (result.optBoolean("reboot_required", false)) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.control_updates_reboot_required),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontWeight = FontWeight.Bold,
-            )
-        }
-    }
-
-    val output = if (job.isNull("output")) "" else job.optString("output")
-    if (output.isNotEmpty()) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = output,
-            style = MaterialTheme.typography.bodySmall,
-            fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),
-        )
-    }
-    if (job.optBoolean("output_truncated", false)) {
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.control_updates_output_truncated),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
-        )
-    }
     val errorCode = if (job.isNull("error_code")) "" else job.optString("error_code")
     val errorMessage = if (job.isNull("error_message")) "" else job.optString("error_message")
     if (errorCode.isNotEmpty() || errorMessage.isNotEmpty()) {

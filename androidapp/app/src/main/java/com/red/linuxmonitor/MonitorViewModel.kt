@@ -338,7 +338,7 @@ class MonitorViewModel : ViewModel() {
             state = state.copy(contextLoading = true, contextError = null)
         } else {
             if (state.snapshotLoading) return
-            state = state.copy(snapshotLoading = true, snapshotError = null)
+            state = state.copy(snapshotLoading = true)
         }
         val reqId = ++requestCounter
         if (forContext) contextReq = reqId else snapshotReq = reqId

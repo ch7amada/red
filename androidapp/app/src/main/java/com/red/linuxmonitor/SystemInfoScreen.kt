@@ -31,13 +31,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.json.JSONArray
@@ -126,7 +129,7 @@ private fun formatCollectedAt(snapshot: JSONObject): String? {
 }
 
 internal @Composable
-fun SystemInfoScreen(state: MonitorState, onRefresh: () -> Unit) {
+fun SystemInfoScreen(state: MonitorState, onRefresh: () -> Unit, onDisconnect: () -> Unit) {
     val snapshot = state.snapshot
     val loading = state.snapshotLoading
     val error = state.snapshotError
@@ -139,11 +142,9 @@ fun SystemInfoScreen(state: MonitorState, onRefresh: () -> Unit) {
     ) {
         Spacer(modifier = Modifier.height(28.dp))
 
-        Text(
-            text = stringResource(R.string.screen_title),
-            style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.semantics { heading() },
+        ConnectedScreenHeader(
+            title = stringResource(R.string.screen_title),
+            onDisconnect = onDisconnect,
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -168,16 +169,7 @@ fun SystemInfoScreen(state: MonitorState, onRefresh: () -> Unit) {
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             )
                         }
-                        Button(onClick = onRefresh, enabled = !loading) {
-                            if (loading && snapshot != null) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                            } else {
-                                Text(text = stringResource(R.string.dashboard_refresh))
-                            }
-                        }
+                        RefreshButton(loading = loading, hasSnapshot = snapshot != null, onClick = onRefresh)
                     }
                 } else {
                     Row(
@@ -195,16 +187,7 @@ fun SystemInfoScreen(state: MonitorState, onRefresh: () -> Unit) {
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             )
                         }
-                        Button(onClick = onRefresh, enabled = !loading) {
-                            if (loading && snapshot != null) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                            } else {
-                                Text(text = stringResource(R.string.dashboard_refresh))
-                            }
-                        }
+                        RefreshButton(loading = loading, hasSnapshot = snapshot != null, onClick = onRefresh)
                     }
                 }
                 if (collectedText != null) {
@@ -219,16 +202,6 @@ fun SystemInfoScreen(state: MonitorState, onRefresh: () -> Unit) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (loading && snapshot != null) {
-            Text(
-                text = stringResource(R.string.dashboard_loading),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
         if (error != null) {
             Text(
                 text = error,
@@ -237,7 +210,7 @@ fun SystemInfoScreen(state: MonitorState, onRefresh: () -> Unit) {
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = onRefresh) {
+            Button(onClick = onRefresh, enabled = !loading) {
                 Text(text = stringResource(R.string.dashboard_retry))
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -279,6 +252,45 @@ fun SystemInfoScreen(state: MonitorState, onRefresh: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
             FilesystemSection(snapshot)
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun RefreshButton(loading: Boolean, hasSnapshot: Boolean, onClick: () -> Unit) {
+    val showSpinner = loading && hasSnapshot
+    val loadingLabel = stringResource(R.string.dashboard_loading)
+    val refreshLabel = stringResource(R.string.dashboard_refresh)
+    Button(
+        onClick = onClick,
+        enabled = !loading,
+        modifier = Modifier.semantics {
+            contentDescription = refreshLabel
+            if (loading) stateDescription = loadingLabel
+        },
+    ) {
+        Box(
+            modifier = Modifier.clearAndSetSemantics { },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = refreshLabel,
+                modifier = if (showSpinner) {
+                    Modifier.alpha(0f)
+                } else {
+                    Modifier
+                },
+            )
+            if (showSpinner) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .semantics {
+                            contentDescription = loadingLabel
+                        },
+                    strokeWidth = 2.dp,
+                )
+            }
         }
     }
 }
@@ -332,15 +344,9 @@ fun CpuCard(snapshot: JSONObject? = null) {
     val cpu = snapshot?.optJSONObject("cpu")
     val statusOk = cpu?.stringOrNull("status") ?: "ok"
     val util = cpu?.doubleOrNull("utilization_pct")
-    val load1 = cpu?.doubleOrNull("load_1m")
-    val load5 = cpu?.doubleOrNull("load_5m")
-    val load15 = cpu?.doubleOrNull("load_15m")
 
     val utilText = formatPct(util)
     val progress = util?.let { it / 100.0 }
-    val load1Text = load1?.toString() ?: "—"
-    val load5Text = load5?.toString() ?: "—"
-    val load15Text = load15?.toString() ?: "—"
 
     androidx.compose.foundation.layout.BoxWithConstraints {
         val isNarrow = maxWidth < 330.dp
@@ -417,40 +423,9 @@ fun CpuCard(snapshot: JSONObject? = null) {
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f))
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = stringResource(R.string.load_average_label),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        LoadCell(value = load1Text, label = stringResource(R.string.load_1m_label))
-                        LoadCell(value = load5Text, label = stringResource(R.string.load_5m_label))
-                        LoadCell(value = load15Text, label = stringResource(R.string.load_15m_label))
-                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun LoadCell(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, style = MaterialTheme.typography.headlineSmall)
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
-        )
     }
 }
 

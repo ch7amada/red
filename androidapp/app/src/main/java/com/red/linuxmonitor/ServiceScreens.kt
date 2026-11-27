@@ -46,7 +46,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 @Composable
-internal fun DockerScreen(state: MonitorState, onRefresh: () -> Unit) {
+internal fun DockerScreen(state: MonitorState, onRefresh: () -> Unit, onDisconnect: () -> Unit) {
     val snapshot = state.snapshot
     val loading = state.snapshotLoading
     val error = state.snapshotError
@@ -59,23 +59,15 @@ internal fun DockerScreen(state: MonitorState, onRefresh: () -> Unit) {
     ) {
         Spacer(modifier = Modifier.height(28.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = stringResource(R.string.service_docker_title),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .semantics { heading() }
-                    .weight(1f, fill = false),
-            )
-            TextButton(onClick = onRefresh, enabled = !loading) {
-                Text(text = stringResource(R.string.service_refresh))
-            }
-        }
+        ConnectedScreenHeader(
+            title = stringResource(R.string.service_docker_title),
+            onDisconnect = onDisconnect,
+            refreshAction = {
+                TextButton(onClick = onRefresh, enabled = !loading) {
+                    Text(text = stringResource(R.string.service_refresh))
+                }
+            },
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -275,7 +267,7 @@ internal fun DockerScreen(state: MonitorState, onRefresh: () -> Unit) {
 }
 
 @Composable
-internal fun LlamaScreen(state: MonitorState, onRefresh: () -> Unit, onRefreshContext: () -> Unit) {
+internal fun LlamaScreen(state: MonitorState, onRefresh: () -> Unit, onRefreshContext: () -> Unit, onDisconnect: () -> Unit) {
     val snapshot = state.snapshot
     val loading = state.snapshotLoading
     val error = state.snapshotError
@@ -288,23 +280,15 @@ internal fun LlamaScreen(state: MonitorState, onRefresh: () -> Unit, onRefreshCo
     ) {
         Spacer(modifier = Modifier.height(28.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = stringResource(R.string.service_llama_title),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .semantics { heading() }
-                    .weight(1f, fill = false),
-            )
-            TextButton(onClick = onRefresh, enabled = !loading) {
-                Text(text = stringResource(R.string.service_refresh))
-            }
-        }
+        ConnectedScreenHeader(
+            title = stringResource(R.string.service_llama_title),
+            onDisconnect = onDisconnect,
+            refreshAction = {
+                TextButton(onClick = onRefresh, enabled = !loading) {
+                    Text(text = stringResource(R.string.service_refresh))
+                }
+            },
+        )
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -428,124 +412,6 @@ internal fun LlamaScreen(state: MonitorState, onRefresh: () -> Unit, onRefreshCo
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                if (l == null) {
-                    Text(
-                        text = stringResource(R.string.service_model_inventory_unavailable),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else if (models.length() == 0) {
-                    if (status == "running" && lError == null) {
-                        Text(
-                            text = stringResource(R.string.service_no_models_reported),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else if (status == "loading") {
-                        Text(
-                            text = stringResource(R.string.service_loading_models),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.service_model_inventory_unavailable),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    Surface(
-                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 12.dp, bottomEnd = 24.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            for (i in 0 until models.length()) {
-                                val model = models.optJSONObject(i) ?: continue
-                                val id = model.stringOrNull("id") ?: "—"
-                                val mStatus = model.stringOrNull("status") ?: "—"
-                                val contextTokens = model.longOrNull("context_tokens")
-                                val trainingTokens = model.longOrNull("training_context_tokens")
-                                val totalSlots = model.intOrNull("total_slots")
-                                val contextError = model.stringOrNull("context_error")
-
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(
-                                            text = id,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        Text(
-                                            text = mStatus,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    if (contextTokens != null) {
-                                        Text(
-                                            text = "${stringResource(R.string.service_context)}: ${formatNumber(contextTokens)} tokens",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    if (trainingTokens != null) {
-                                        Text(
-                                            text = "${stringResource(R.string.service_training_context)}: ${formatNumber(trainingTokens)} tokens",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    if (totalSlots != null) {
-                                        Text(
-                                            text = "${stringResource(R.string.service_slots)}: $totalSlots",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    if (contextError != null) {
-                                        Text(
-                                            text = contextError,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.error,
-                                        )
-                                    }
-                                }
-
-                                if (i < models.length() - 1) {
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (error != null) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = error,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(onClick = onRefresh) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(stringResource(R.string.service_retry))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
 
                 Surface(
                     shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 12.dp, bottomEnd = 24.dp),
@@ -784,6 +650,124 @@ internal fun LlamaScreen(state: MonitorState, onRefresh: () -> Unit, onRefreshCo
                                 }
                             }
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                if (l == null) {
+                    Text(
+                        text = stringResource(R.string.service_model_inventory_unavailable),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (models.length() == 0) {
+                    if (status == "running" && lError == null) {
+                        Text(
+                            text = stringResource(R.string.service_no_models_reported),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else if (status == "loading") {
+                        Text(
+                            text = stringResource(R.string.service_loading_models),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.service_model_inventory_unavailable),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 12.dp, bottomEnd = 24.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            for (i in 0 until models.length()) {
+                                val model = models.optJSONObject(i) ?: continue
+                                val id = model.stringOrNull("id") ?: "—"
+                                val mStatus = model.stringOrNull("status") ?: "—"
+                                val contextTokens = model.longOrNull("context_tokens")
+                                val trainingTokens = model.longOrNull("training_context_tokens")
+                                val totalSlots = model.intOrNull("total_slots")
+                                val contextError = model.stringOrNull("context_error")
+
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = id,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Text(
+                                            text = mStatus,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    if (contextTokens != null) {
+                                        Text(
+                                            text = "${stringResource(R.string.service_context)}: ${formatNumber(contextTokens)} tokens",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    if (trainingTokens != null) {
+                                        Text(
+                                            text = "${stringResource(R.string.service_training_context)}: ${formatNumber(trainingTokens)} tokens",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    if (totalSlots != null) {
+                                        Text(
+                                            text = "${stringResource(R.string.service_slots)}: $totalSlots",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    if (contextError != null) {
+                                        Text(
+                                            text = contextError,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                }
+
+                                if (i < models.length() - 1) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (error != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(onClick = onRefresh) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(stringResource(R.string.service_retry))
                     }
                 }
 
