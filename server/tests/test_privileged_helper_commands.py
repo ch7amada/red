@@ -86,13 +86,13 @@ def test_power_schedule_command_shape():
     runner = FakeRunner([FakeResult(0, "", "")])
     result = ph.power_schedule(runner, "reboot", 60)
     assert result["scheduled"] is True
-    assert runner.calls[0][0] == [ph.SYSTEMD_RUN, "--unit=linux-monitor-power-schedule", "--on-active=60s", ph.SHUTDOWN, "-r", "now"]
+    assert runner.calls[0][0] == [ph.SYSTEMD_RUN, "--unit=linux-monitor-power-schedule", "--on-active=60s", ph.SYSTEMCTL, "reboot"]
 
 
 def test_power_schedule_shutdown():
     runner = FakeRunner([FakeResult(0, "", "")])
     ph.power_schedule(runner, "shutdown", 120)
-    assert runner.calls[0][0] == [ph.SYSTEMD_RUN, "--unit=linux-monitor-power-schedule", "--on-active=120s", ph.SHUTDOWN, "-h", "now"]
+    assert runner.calls[0][0] == [ph.SYSTEMD_RUN, "--unit=linux-monitor-power-schedule", "--on-active=120s", ph.SYSTEMCTL, "poweroff"]
 
 
 def test_power_schedule_validation():

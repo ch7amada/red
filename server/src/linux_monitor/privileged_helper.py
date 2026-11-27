@@ -11,7 +11,6 @@ import sys
 from typing import Any, Callable, Optional
 
 APT_GET = "/usr/bin/apt-get"
-SHUTDOWN = "/usr/bin/shutdown"
 SYSTEMD_RUN = "/usr/bin/systemd-run"
 SYSTEMCTL = "/usr/bin/systemctl"
 DOCKER = "/usr/bin/docker"
@@ -234,7 +233,6 @@ def power_schedule(
     *,
     systemd_run: str = SYSTEMD_RUN,
     systemctl: str = SYSTEMCTL,
-    shutdown: str = SHUTDOWN,
 ) -> dict[str, Any]:
     if action_type not in {"reboot", "shutdown"}:
         raise HelperError("invalid_power_action", "unsupported power action")
@@ -242,14 +240,13 @@ def power_schedule(
         raise HelperError("invalid_delay", "delay must be an integer")
     if delay_seconds < 10 or delay_seconds > 3600:
         raise HelperError("invalid_delay", "delay must be between 10 and 3600 seconds")
-    flag = "-r" if action_type == "reboot" else "-h"
+    verb = "reboot" if action_type == "reboot" else "poweroff"
     argv = [
         systemd_run,
         f"--unit={POWER_UNIT}",
         f"--on-active={delay_seconds}s",
-        shutdown,
-        flag,
-        "now",
+        systemctl,
+        verb,
     ]
     result = runner(argv, timeout=60, env=scrubbed_env())
     if result.returncode != 0:
