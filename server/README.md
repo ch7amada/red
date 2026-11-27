@@ -1,8 +1,8 @@
 # Linux Monitor Server
 
 FastAPI service that exposes a point-in-time system monitoring snapshot and controlled
-update/power operations for a single Ubuntu host. It runs unprivileged behind Tailscale;
-privileged work is delegated to a fixed root-owned helper.
+update/power operations for a single Ubuntu host. It runs unprivileged and delegates
+privileged work to a fixed root-owned helper.
 
 ## Features
 
@@ -51,10 +51,11 @@ Without installation, tests can run with `PYTHONPATH=src pytest -q`.
 
 ## Security warning
 
-This service uses direct HTTP. Transport encryption is provided by Tailscale WireGuard,
-not by the application. Do not expose port 8000 to the public internet or to untrusted
-networks. Restrict clients with Tailscale ACLs to the server's port 8000. Reader and
-admin bearer tokens are long-lived secrets; store them only in the root-owned
+This service uses direct HTTP. Tailscale WireGuard encrypts tailnet traffic. LAN
+traffic, including bearer tokens, is unencrypted. Restrict the API port to authorized
+Tailscale clients and any trusted LAN clients you enable in the
+[deployment guide](docs/deployment.md#allow-direct-lan-access). Reader and admin
+bearer tokens are long-lived secrets; store them only in the root-owned
 `/etc/linux-monitor/server.env`, rotate them by editing that file and restarting the
 service, and never commit them. The service account has no sudo rights except the exact
 fixed helper path `/usr/local/libexec/linux-monitor-privileged`. Future Android clients

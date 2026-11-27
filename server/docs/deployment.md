@@ -1,14 +1,16 @@
 # Deployment Guide
 
-Target: Ubuntu 22.04 or 24.04, Python 3.10+, systemd, direct HTTP over Tailscale.
+Target: Ubuntu 22.04 or 24.04, Python 3.10+, systemd, direct HTTP over Tailscale
+with optional trusted LAN access.
 
 ## Architecture
 
-- Uvicorn binds to the configured Tailscale IPv4 address only, never `0.0.0.0`.
+- `HOST` controls the Uvicorn bind address. The installer uses the Tailscale IPv4
+  address when available unless you set `HOST` explicitly.
 - Default port is `8000`; change `PORT` in the environment file.
 - Tailscale WireGuard supplies transport encryption. There is no HTTPS, Caddy,
   `tailscale serve`, or Tailscale SSH in this design.
-- Tailscale ACLs must restrict clients to the server on port 8000.
+- Restrict Tailscale access to authorized clients on the configured API port.
 - The API process runs as the unprivileged `linux-monitor` account.
 - Privileged APT and power work runs through `/usr/bin/sudo -n
   /usr/local/libexec/linux-monitor-privileged`, which validates a fixed operation set.
@@ -75,6 +77,29 @@ What it does:
 
 If Tailscale is unavailable during install, set `HOST` explicitly. The script defaults
 `HOST` to `tailscale ip -4` output and warns if it falls back to `127.0.0.1`.
+
+## Allow direct LAN access
+
+Allow the configured API port only from your trusted LAN and authorized Tailscale
+clients. Direct LAN traffic sends bearer tokens over plain HTTP. Keep the port off
+public-facing networks and router port forwards.
+
+If UFW is active and blocks incoming LAN traffic, add a rule for your LAN interface
+and subnet. Replace the example interface, subnet, and default API port as needed.
+
+```bash
+sudo ufw allow in on enp3s0 from 192.168.1.0/24 to any port 8000 proto tcp
+```
+
+Allow the same port for the intended tailnet clients in your Tailscale access rules.
+For a fresh install, pass `HOST=0.0.0.0` to the installer. On an existing install, run
+`sudoedit /etc/linux-monitor/server.env`, set `HOST=0.0.0.0`, and run
+`sudo systemctl restart linux-monitor.service`. Keep the existing `PORT` value.
+
+This binds the API to all IPv4 interfaces, including loopback. From each network,
+request `/health/live` using the corresponding host IPv4 address and API port.
+Expect `{"status":"ok"}`. The dashboard on the API host can continue to use
+`127.0.0.1` with that port.
 
 ## Systemd unit
 
@@ -168,9 +193,8 @@ allowing tagged client devices to reach tagged server devices only on TCP 8000:
 
 Assign `tag:linux-monitor-client` to client devices and `tag:linux-monitor-server` to
 the server device in Tailscale; otherwise the tags are unused and no traffic is allowed.
-Deny all other ingress to the host. Do not publish port 8000 through a router or
-firewall. These ACLs are a network-layer restriction only; they do not replace the
-API's reader and admin bearer-token authentication.
+Use the configured API port in the ACL if it differs from `8000`. The API requires
+reader or admin bearer-token authentication for protected endpoints.
 
 ## Uninstall
 

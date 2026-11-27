@@ -1,13 +1,17 @@
 # Linux Monitor
 
 This runbook starts the API and web dashboard on the same Ubuntu host. It assumes
-the checkout is at `~/projects/red` and the host is connected to Tailscale. The API
-listens on `127.0.0.1:8002`. The dashboard is reachable on port `8082` at both the
-host's LAN IPv4 address and its Tailscale IPv4 address. For direct API access from
-another device, see the
-[Tailscale deployment guide](server/docs/deployment.md).
+the checkout is at `~/projects/red` and the host is connected to Tailscale. Both
+the API (port `8002`) and the dashboard (port `8082`) are reachable at the host's
+LAN and Tailscale IPv4 addresses. The dashboard connects to the API at
+`127.0.0.1:8002`.
 
 ## 1. Install and start the API with the privileged helper
+
+Before opening TCP port `8002`, configure access for your trusted LAN and
+authorized Tailscale clients. The LAN connection sends bearer tokens over plain
+HTTP. Use the configured port `8002` when following the firewall instructions.
+[API deployment guide](server/docs/deployment.md#allow-direct-lan-access)
 
 1. From the checkout, run the installer for a fresh installation or to restore a
    missing helper or sudoers rule. It installs the systemd service, the
@@ -17,13 +21,13 @@ another device, see the
 
    ```bash
    cd ~/projects/red
-   sudo env SOURCE_DIR="$PWD/server" HOST=127.0.0.1 PORT=8002 bash server/scripts/install.sh
+   sudo env SOURCE_DIR="$PWD/server" HOST=0.0.0.0 PORT=8002 bash server/scripts/install.sh
    ```
 
    The installer creates and prints both tokens on first install. It preserves
    an existing `/etc/linux-monitor/server.env`. If an existing install uses a
    different address or port, edit it with `sudoedit /etc/linux-monitor/server.env`
-   and set `HOST=127.0.0.1` and `PORT=8002` for this setup. If you changed the file, run
+   and set `HOST=0.0.0.0` and `PORT=8002` for this setup. If you changed the file, run
    `sudo systemctl restart linux-monitor.service` to load it.
 
 2. Start the API and enable it at boot. Confirm it is active, enabled, and healthy.
@@ -36,6 +40,10 @@ another device, see the
    ```
 
    Expect `active`, `enabled`, and `{"status":"ok"}`.
+
+   From a client on each network, open `http://<lan-ip>:8002/health/live` and
+   `http://<tailscale-ip>:8002/health/live` respectively. Use the host addresses
+   listed in [step 3](#3-start-the-dashboard-for-lan-and-tailscale-access).
 
 3. Verify the control setup. Check sudoers and invoke the helper as the service
    account without an operation. The last command should return

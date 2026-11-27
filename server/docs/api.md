@@ -1,7 +1,8 @@
 # API Reference
 
-Base URL: `http://<tailscale-ip>:8000`. All endpoints use direct HTTP; transport
-encryption is provided by Tailscale.
+Use `http://<tailscale-ip>:8000` on Tailscale or `http://<lan-ip>:8000` when LAN
+access is enabled. Use the configured API port if it differs from `8000`. Tailscale
+encrypts its traffic. Direct LAN requests use plain HTTP.
 
 ## Authentication
 
