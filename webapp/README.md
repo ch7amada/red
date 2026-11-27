@@ -25,8 +25,8 @@ LINUX_MONITOR_API_URL=http://127.0.0.1:8000 uvicorn app:app --host 127.0.0.1 --p
 
 Default bind is `127.0.0.1:8080`.
 
-For access over Tailscale and automatic startup at boot, follow the
-[dashboard runbook](../README.md#3-start-the-dashboard-on-tailscale-and-enable-it-at-boot).
+For access by LAN IP and Tailscale, including automatic startup at boot, follow
+the [dashboard runbook](../README.md#3-start-the-dashboard-for-lan-and-tailscale-access).
 
 ## Configuration
 
