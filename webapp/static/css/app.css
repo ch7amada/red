@@ -215,11 +215,6 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
 .bar span { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
 @media (prefers-reduced-motion: no-preference) { .bar span { transition: width 0.3s ease; } }
 
-.load-row { display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
-.load-row div { display: flex; flex-direction: column; }
-.load-row span { font-size: 20px; font-weight: 600; }
-.load-row small { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-
 .muted { color: var(--muted); }
 .error-text { color: var(--error); font-size: 14px; }
 
@@ -326,7 +321,6 @@ button.nav-item { border: 0; background: transparent; color: inherit; font: inhe
   .metric-big { font-size: 36px; }
   .hostname { font-size: clamp(24px, 7vw, 32px); }
   .hero-metrics { gap: 12px; }
-  .load-row { gap: 12px; }
   .gpu-metrics { gap: 12px; }
 }
 

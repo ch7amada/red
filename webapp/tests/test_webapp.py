@@ -80,6 +80,10 @@ def test_connect_success_sets_session_and_renders():
     r2 = client.get("/fragments/overview", cookies=r.cookies, headers={"HX-Request": "true"}, follow_redirects=False)
     assert r2.status_code == 200
     assert "test-host" in r2.text
+    assert "12.5%" in r2.text
+    assert "1m load" not in r2.text
+    assert "5m load" not in r2.text
+    assert "15m load" not in r2.text
     assert "no-store" in r2.headers.get("cache-control", "")
 
 
