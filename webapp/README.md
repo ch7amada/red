@@ -11,7 +11,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run
+## Run locally for development
 
 ```bash
 LINUX_MONITOR_API_URL=http://127.0.0.1:8000 python app.py
@@ -24,6 +24,9 @@ LINUX_MONITOR_API_URL=http://127.0.0.1:8000 uvicorn app:app --host 127.0.0.1 --p
 ```
 
 Default bind is `127.0.0.1:8080`.
+
+For access over Tailscale and automatic startup at boot, follow the
+[dashboard runbook](../README.md#3-start-the-dashboard-on-tailscale-and-enable-it-at-boot).
 
 ## Configuration
 

@@ -1,9 +1,10 @@
 # Linux Monitor
 
 This runbook starts the API and web dashboard on the same Ubuntu host. It assumes
-the checkout is at `~/projects/red`. The API listens on `127.0.0.1:8002` and the
-dashboard on `127.0.0.1:8082`, so both are reachable from this host. For direct API
-access from another device, see the [Tailscale deployment guide](server/docs/deployment.md).
+the checkout is at `~/projects/red` and the host is connected to Tailscale. The API
+listens on `127.0.0.1:8002` and the dashboard listens on the host's Tailscale IPv4
+address on port `8082`. For direct API access from another device, see the
+[Tailscale deployment guide](server/docs/deployment.md).
 
 ## 1. Install and start the API with the privileged helper
 
@@ -64,7 +65,7 @@ access from another device, see the [Tailscale deployment guide](server/docs/dep
    See the [token rotation instructions](server/docs/operations.md#token-rotation)
    if you need new values.
 
-## 3. Start the dashboard and enable it at boot
+## 3. Start the dashboard on Tailscale and enable it at boot
 
 1. As your regular user, install the dashboard dependencies into its virtual
    environment. Reuse the existing `.venv` if you already set it up.
@@ -75,19 +76,21 @@ access from another device, see the [Tailscale deployment guide](server/docs/dep
    .venv/bin/python -m pip install -r requirements.txt
    ```
 
-2. Create the user service. If your checkout is elsewhere, change both paths in
-   the unit. Use the API's actual address and port for `LINUX_MONITOR_API_URL`.
+2. Create the user service. `tailscale ip -4` supplies the dashboard's bind
+   address. If your checkout is elsewhere, change both paths in the unit.
 
    ```bash
-   mkdir -p ~/.config/systemd/user
-   cat > ~/.config/systemd/user/linux-monitor-web.service <<'EOF'
+   dashboard_host=$(tailscale ip -4) &&
+     test -n "$dashboard_host" &&
+     mkdir -p ~/.config/systemd/user &&
+     cat > ~/.config/systemd/user/linux-monitor-web.service <<EOF
    [Unit]
    Description=Linux Monitor web dashboard
 
    [Service]
    WorkingDirectory=%h/projects/red/webapp
    Environment=LINUX_MONITOR_API_URL=http://127.0.0.1:8002
-   ExecStart=%h/projects/red/webapp/.venv/bin/python -m uvicorn app:app --host 127.0.0.1 --port 8082 --workers 1
+   ExecStart=%h/projects/red/webapp/.venv/bin/python -m uvicorn app:app --host $dashboard_host --port 8082 --workers 1
    Restart=on-failure
    RestartSec=5
 
@@ -96,27 +99,32 @@ access from another device, see the [Tailscale deployment guide](server/docs/dep
    EOF
    ```
 
-3. Enable lingering so systemd starts your user services before you log in. Start
-   and enable the dashboard as your regular user.
+3. Enable Tailscale and lingering so the dashboard can start before you log in.
+   Restart the dashboard to apply the new bind address. `restart` also starts
+   the service on a fresh install.
 
    ```bash
+   sudo systemctl enable --now tailscaled.service
    sudo loginctl enable-linger "$(id -un)"
    systemctl --user daemon-reload
-   systemctl --user enable --now linux-monitor-web.service
+   systemctl --user enable linux-monitor-web.service
+   systemctl --user restart linux-monitor-web.service
    systemctl --user is-active linux-monitor-web.service
    systemctl --user is-enabled linux-monitor-web.service
    loginctl show-user "$(id -un)" -p Linger
-   curl -fsS -o /dev/null http://127.0.0.1:8082/connect
+   curl --retry 5 --retry-connrefused --retry-delay 1 -fsS -o /dev/null \
+     "http://$(tailscale ip -4):8082/connect"
    ```
 
-   Expect `active`, `enabled`, and `Linger=yes`. If you edited an already running
-   dashboard unit, apply the changes with `systemctl --user restart linux-monitor-web.service`
-   after reloading systemd.
+   Expect `active`, `enabled`, and `Linger=yes`. The health check succeeds when
+   the dashboard serves the Connect page at its Tailscale address.
 
-4. Open the dashboard and paste the admin token on **Connect**. On **Control**,
-   choose **Check for updates** and wait for the job to succeed. It refreshes APT
+4. From a device on your tailnet with access to TCP port `8082`, open
+   `http://<tailscale-ip>:8082/` using the address printed by `tailscale ip -4`
+   on the host. Paste the admin token on **Connect**. On **Control**, choose
+   **Check for updates** and wait for the job to succeed. It refreshes APT
    metadata and simulates an upgrade without installing packages. Power actions
-   take effect after the selected delay. [Open the dashboard](http://127.0.0.1:8082/)
+   take effect after the selected delay.
 
 If either service fails or a control job reports an error, check this boot's logs.
 
