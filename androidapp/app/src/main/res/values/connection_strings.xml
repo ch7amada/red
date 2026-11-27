@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Connection screen -->
+    <string name="connection_title">Connect</string>
+    <string name="connection_heading">Connect to your server</string>
+    <string name="connection_subtitle">Enter the server address and access token.</string>
+    <string name="connection_url_label">Server URL</string>
+    <string name="connection_url_support">Type http:// or https:// explicitly. HTTPS is preferred.</string>
+    <string name="connection_token_label">Access token</string>
+    <string name="connection_connect">Connect</string>
+    <string name="connection_disconnect">Disconnect</string>
+    <string name="connection_connecting">Connecting…</string>
+    <string name="connection_url_error">Enter a URL starting with http:// or https://</string>
+    <string name="connection_show_token">Show token</string>
+    <string name="connection_hide_token">Hide token</string>
+
+    <!-- Navigation labels -->
+    <string name="nav_docker">Docker</string>
+    <string name="nav_llama">llama.cpp</string>
+</resources>

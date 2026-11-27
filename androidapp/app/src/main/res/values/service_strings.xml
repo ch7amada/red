@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="service_docker_title">Docker</string>
+    <string name="service_llama_title">llama.cpp</string>
+    <string name="service_sample">Sample %1$s</string>
+    <string name="service_retry">Retry</string>
+
+    <string name="service_docker_engine">Docker engine</string>
+    <string name="service_docker_running">Docker running</string>
+    <string name="service_docker_unavailable">Docker unavailable</string>
+    <string name="service_docker_collection_failed">Docker collection failed</string>
+    <string name="service_running_containers">Running containers</string>
+    <string name="service_no_running_containers">No running containers</string>
+    <string name="service_image">Image</string>
+    <string name="service_id">ID</string>
+
+    <string name="service_llama_server">llama.cpp server</string>
+    <string name="service_running">Running</string>
+    <string name="service_loaded_models">Loaded models</string>
+    <string name="service_total_models">Total models: %1$d</string>
+    <string name="service_model_inventory_unavailable">Model inventory unavailable</string>
+    <string name="service_no_models_reported">No models reported</string>
+    <string name="service_loading_models">Loading models…</string>
+    <string name="service_context">Context</string>
+    <string name="service_training_context">Training context</string>
+    <string name="service_slots">Slots</string>
+
+    <string name="service_context_usage">Context usage</string>
+    <string name="service_context_unavailable">Context usage unavailable</string>
+    <string name="service_no_slots_reported">No slots reported</string>
+    <string name="service_no_loaded_model">No loaded model</string>
+    <string name="service_used">Used</string>
+    <string name="service_remaining">Remaining</string>
+    <string name="service_capacity">Capacity</string>
+    <string name="service_busy">Busy</string>
+    <string name="service_idle">Idle</string>
+    <string name="service_unknown">Unknown</string>
+    <string name="service_slot">Slot %1$d</string>
+    <string name="service_refresh">Refresh</string>
+    <string name="service_refresh_context_usage">Refresh context usage</string>
+</resources>

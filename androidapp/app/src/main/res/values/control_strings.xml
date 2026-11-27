@@ -2,20 +2,56 @@
 <resources>
     <!-- Control screen -->
     <string name="control_title">Control</string>
-    <string name="control_simulated">Simulated actions</string>
     <string name="control_updates_title">System updates</string>
     <string name="control_updates_ready">Check for available package updates.</string>
-    <string name="control_updates_available">3 updates available</string>
     <string name="control_updates_none">System is up to date</string>
     <string name="control_updates_button_check">Check for updates</string>
     <string name="control_updates_button_update">Update system</string>
+    <string name="control_updates_button_install">Install updates</string>
+    <string name="control_updates_checkbox_confirm">I confirm I want to install updates</string>
+    <string name="control_updates_no_job">No update operation running.</string>
+    <string name="control_updates_status_label">Status</string>
+    <string name="control_updates_packages_title">Packages</string>
+    <string name="control_updates_count">%1$d package(s)</string>
+    <string name="control_updates_reboot_required">Reboot required</string>
+    <string name="control_updates_output_truncated">Output truncated.</string>
+    <string name="control_updates_no_packages">No packages to update.</string>
+
     <string name="control_reboot_title">Server reboot</string>
     <string name="control_reboot_explanation">A reboot would briefly interrupt the connection.</string>
     <string name="control_reboot_button">Reboot</string>
-    <string name="control_reboot_simulated">Reboot simulated</string>
     <string name="control_confirm_update_title">Update system?</string>
     <string name="control_confirm_update_message">Install available updates on %1$s in this preview.</string>
     <string name="control_confirm_reboot_title">Reboot server?</string>
-    <string name="control_confirm_reboot_message">A reboot would briefly interrupt connections to %1$s. This is a simulation.</string>
+    <string name="control_confirm_reboot_message">A reboot would briefly interrupt connections to %1$s.</string>
     <string name="control_dialog_cancel">Cancel</string>
+
+    <!-- Role feedback -->
+    <string name="control_role_reader_title">Reader access</string>
+    <string name="control_role_reader_message">You are signed in as a reader. Update and power actions require an admin token; this view is read-only.</string>
+    <string name="control_role_unknown_title">Unknown role</string>
+    <string name="control_role_unknown_message">Your access role could not be determined. Retry to refresh your permissions.</string>
+    <string name="control_role_loading">Loading your access role…</string>
+    <string name="control_role_retry">Retry</string>
+    <string name="control_role_error">Could not load access role.</string>
+
+    <!-- Power -->
+    <string name="control_power_title">Power</string>
+    <string name="control_power_no_action">No power action scheduled.</string>
+    <string name="control_power_action_label">Action</string>
+    <string name="control_power_status_label">Status</string>
+    <string name="control_power_scheduled_for">Scheduled for</string>
+    <string name="control_power_cancelled_window_closed">Cancellation window closed.</string>
+    <string name="control_power_cancel">Cancel</string>
+    <string name="control_power_schedule">Schedule power action</string>
+    <string name="control_power_action_reboot">Reboot</string>
+    <string name="control_power_action_shutdown">Shutdown</string>
+    <string name="control_power_delay_label">Delay (seconds, 10–3600)</string>
+    <string name="control_power_confirm_label">Type the action to confirm</string>
+    <string name="control_power_confirm_support">Type %1$s to confirm</string>
+    <string name="control_power_admin_only">Admin access required for power actions.</string>
+
+    <!-- Generic -->
+    <string name="control_loading">Loading…</string>
+    <string name="control_error_prefix">Error</string>
 </resources>

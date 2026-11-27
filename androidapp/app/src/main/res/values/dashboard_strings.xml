@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dashboard / system info screen -->
+    <string name="dashboard_live">Live</string>
+    <string name="dashboard_retained">Retained data</string>
+    <string name="dashboard_refresh">Refresh</string>
+    <string name="dashboard_snapshot">Snapshot %1$s</string>
+    <string name="dashboard_loading">Loading…</string>
+    <string name="dashboard_retry">Retry</string>
+    <string name="dashboard_snapshot_unavailable">Snapshot unavailable</string>
+
+    <!-- Host / uptime -->
+    <string name="dashboard_uptime_unavailable">Uptime unavailable</string>
+
+    <!-- CPU -->
+    <string name="dashboard_cpu_collection_failed">CPU collection failed</string>
+
+    <!-- Memory -->
+    <string name="dashboard_memory_collection_failed">Memory collection failed</string>
+
+    <!-- Swap -->
+    <string name="dashboard_swap_title">Swap</string>
+    <string name="dashboard_swap_no_swap">No swap configured</string>
+    <string name="dashboard_swap_collection_failed">Swap collection failed</string>
+    <string name="dashboard_swap_free">%1$s free</string>
+
+    <!-- GPU -->
+    <string name="dashboard_gpu_collection_failed">GPU collection failed</string>
+    <string name="dashboard_gpu_none">No GPU detected</string>
+
+    <!-- Network -->
+    <string name="dashboard_network_title">Network</string>
+    <string name="dashboard_network_collection_failed">Network collection failed</string>
+    <string name="dashboard_network_none">No network interfaces</string>
+
+    <!-- Storage -->
+    <string name="dashboard_storage_title">Storage</string>
+    <string name="dashboard_storage_collection_failed">Filesystem collection failed</string>
+    <string name="dashboard_storage_none">No filesystems reported</string>
+
+    <!-- Network metric labels -->
+    <string name="dashboard_rx">RX</string>
+    <string name="dashboard_tx">TX</string>
+    <string name="dashboard_packets">Packets</string>
+    <string name="dashboard_errors">Errors</string>
+    <string name="dashboard_dropped">Dropped</string>
+
+    <!-- Common -->
+    <string name="dashboard_available">%1$s available</string>
+</resources>
